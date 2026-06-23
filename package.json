@@ -1,0 +1,22 @@
+{
+	"name": "@prototir/sdk",
+	"version": "0.0.1",
+	"private": true,
+	"description": "Embeddable mini-SDK for Prototir prototypes (postMessage: ready / event / score).",
+	"type": "module",
+	"main": "./dist/prototir.mjs",
+	"module": "./dist/prototir.mjs",
+	"types": "./dist/index.d.ts",
+	"files": ["dist"],
+	"scripts": {
+		"build": "tsup",
+		"dev": "tsup --watch",
+		"typecheck": "tsc --noEmit",
+		"serve": "node tools/serve.mjs",
+		"start": "npm run build && npm run serve"
+	},
+	"devDependencies": {
+		"tsup": "^8.5.0",
+		"typescript": "^5.9.2"
+	}
+}

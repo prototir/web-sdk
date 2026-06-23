@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Prototir demo prototype</title>
+		<style>
+			:root {
+				color-scheme: dark;
+			}
+			* {
+				box-sizing: border-box;
+			}
+			body {
+				margin: 0;
+				min-height: 100vh;
+				display: grid;
+				place-items: center;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				background: #0a0a0a;
+				color: #ededed;
+			}
+			.stage {
+				text-align: center;
+				padding: 2rem;
+			}
+			h1 {
+				font-size: 1.1rem;
+				letter-spacing: 0.1em;
+				text-transform: uppercase;
+				color: #8a8a8a;
+				margin: 0 0 1.5rem;
+			}
+			.score {
+				font-size: 3rem;
+				font-weight: 700;
+				margin: 0.5rem 0 1.5rem;
+			}
+			button {
+				font: inherit;
+				cursor: pointer;
+				background: #ededed;
+				color: #0a0a0a;
+				border: 1px solid #ededed;
+				padding: 0.6rem 1.2rem;
+				margin: 0.25rem;
+			}
+			button.ghost {
+				background: transparent;
+				color: #ededed;
+			}
+			button:hover {
+				opacity: 0.85;
+			}
+			.hint {
+				margin-top: 1.5rem;
+				font-size: 0.75rem;
+				color: #6a6a6a;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="stage">
+			<h1 id="slug">demo prototype</h1>
+			<div class="score" id="score">0</div>
+			<button id="tap">Tap +10</button>
+			<button id="level" class="ghost">Reach level 2</button>
+			<p class="hint">A demo prototype wired to the Prototir SDK.</p>
+		</div>
+
+		<script src="/prototir.js"></script>
+		<script>
+			// Show which prototype this is (from the /{slug}/ path).
+			const slug = decodeURIComponent(location.pathname.split('/').filter(Boolean)[0] || 'demo');
+			document.getElementById('slug').textContent = slug;
+
+			let score = 0;
+			const scoreEl = document.getElementById('score');
+
+			// Announce we're ready — starts the real session in the shell.
+			Prototir.ready();
+
+			document.getElementById('tap').addEventListener('click', () => {
+				score += 10;
+				scoreEl.textContent = String(score);
+				Prototir.event('tap', { score });
+				Prototir.score(score);
+			});
+
+			document.getElementById('level').addEventListener('click', () => {
+				Prototir.event('level_complete', { level: 2 });
+			});
+		</script>
+	</body>
+</html>
