@@ -1,6 +1,7 @@
 import {
 	PROTOTIR_SOURCE,
 	PROTOTIR_PROTOCOL_VERSION,
+	isShellMessage,
 	type PrototypeMessage
 } from './protocol';
 
@@ -17,6 +18,15 @@ import {
  * </script>
  * ```
  */
+export interface PrototirStorage {
+	/** Read a value persisted for this prototype (null when absent or shell unavailable). */
+	get(key: string): Promise<string | null>;
+	/** Persist a value for this prototype (shell-namespaced; size-capped by the shell). */
+	set(key: string, value: string): Promise<void>;
+	/** Remove a persisted value. */
+	remove(key: string): Promise<void>;
+}
+
 export interface PrototirSdk {
 	/** Signal the prototype is loaded and interactive (starts the real session). */
 	ready(): void;
@@ -24,6 +34,9 @@ export interface PrototirSdk {
 	event(name: string, data?: Record<string, unknown>): void;
 	/** Report a score. */
 	score(value: number): void;
+	/** Per-prototype key-value persistence, brokered by the shell (D22). The sandboxed
+	 * iframe has no reliable localStorage of its own. */
+	storage: PrototirStorage;
 }
 
 /**
@@ -49,6 +62,37 @@ function post(message: PrototypeMessage): void {
 	window.parent.postMessage(message, resolveTargetOrigin());
 }
 
+// ---- storage plumbing: request/response over postMessage, matched by id ----
+
+const STORAGE_TIMEOUT_MS = 3000;
+let nextStorageId = 1;
+const pending = new Map<number, (value: string | null) => void>();
+
+if (typeof window !== 'undefined') {
+	window.addEventListener('message', (e: MessageEvent) => {
+		// Only accept replies from our parent (the shell).
+		if (e.source !== window.parent || !isShellMessage(e.data)) return;
+		if (e.data.type !== 'storage:result') return;
+		const resolve = pending.get(e.data.id);
+		if (resolve) {
+			pending.delete(e.data.id);
+			resolve(e.data.value ?? null);
+		}
+	});
+}
+
+function storageRequest(op: 'get' | 'set' | 'remove', key: string, value?: string): Promise<string | null> {
+	return new Promise((resolve) => {
+		if (typeof window === 'undefined' || window.parent === window) return resolve(null); // not framed
+		const id = nextStorageId++;
+		pending.set(id, resolve);
+		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'storage', op, key, value, id });
+		setTimeout(() => {
+			if (pending.delete(id)) resolve(null); // shell absent or too old — degrade quietly
+		}, STORAGE_TIMEOUT_MS);
+	});
+}
+
 export const Prototir: PrototirSdk = {
 	ready() {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'ready' });
@@ -58,6 +102,17 @@ export const Prototir: PrototirSdk = {
 	},
 	score(value) {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'score', value });
+	},
+	storage: {
+		async get(key) {
+			return storageRequest('get', key);
+		},
+		async set(key, value) {
+			await storageRequest('set', key, value);
+		},
+		async remove(key) {
+			await storageRequest('remove', key);
+		}
 	}
 };
 

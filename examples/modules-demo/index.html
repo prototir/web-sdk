@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Modules demo — three + prefab-shader-canvas</title>
+<!-- The import map below is exactly what the upload pipeline injects for a bundle that
+     declares "modules": [...] in prototir.json (D22). Import maps must be inline, so the
+     sandbox CSP admits this one via its sha256 hash (.csp.json sidecar next to this file). -->
+<script type="importmap">{"imports":{"three":"/modules/three@0.170.0/build/three.module.js","prefab-shader-canvas":"/modules/prefab-shader-canvas@0.1.0/index.js"}}</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #0a0a0a; overflow: hidden; }
+	#hud { position: fixed; top: 10px; left: 10px; color: #ededed; font: 12px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<div id="hud">modules-demo · loading…</div>
+<script src="/prototir.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
