@@ -77,34 +77,72 @@ hook is planned for 0.2).
 
 ---
 
-## `prefab-input@0.1.0` — available
+## `prefab-input@0.2.0` — available
 
-**One input API for desktop AND mobile.** Desktop: WASD/arrows drive `axes`, mapped keys
-drive actions. Touch devices (auto-detected via coarse pointer, or forced): a virtual
-left joystick drives `axes` and each action gets an on-screen button. Your code reads
-the same three things either way — this is how a prototype honestly declares
-`"devices": "both"`.
+**One input API for desktop AND mobile.** Desktop: keyboard drives axes and actions.
+Touch devices (auto-detected via coarse pointer, or forced): a **fully customizable
+virtual overlay** — any number of buttons, joysticks and d-pads, each with its own
+position, size and shape. Press semantics (press / release / short press / long press)
+behave identically for keyboard keys and on-screen controls. Your code reads the same
+things either way — this is how a prototype honestly declares `"devices": "both"`.
 
 ```js
 import { createInput } from 'prefab-input';
 const input = createInput({ actions: [{ id: 'jump', key: 'Space', label: 'A' }] });
 // per frame:
-input.axes            // { x: -1..1, y: -1..1 }  (y = forward)
+input.axes            // axis('move') — { x: -1..1, y: -1..1 }  (y = forward)
+input.axis('look')    // any extra stick / d-pad by id
 input.pressed('jump') // held?
-input.onPress('jump', () => …) // edge-triggered
+input.onPress('jump', () => …) // edge-triggered; also onRelease / onShortPress / onLongPress
 ```
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `actions` | `[]` | `[{ id, key, label? }]` — keyboard key on desktop, round button on touch |
+| `actions` | `[]` | `[{ id, key, label?, position?, size?, shape?, longPressMs? }]` — keyboard key on desktop, button on touch |
 | `virtual` | `'auto'` | `'auto'` = coarse-pointer devices; `true`/`false` to force |
-| `joystick` | `true` | virtual stick / WASD+arrows → `axes` |
-| `joystickSize` | `120` | px |
+| `joystick` | `true` | primary `'move'` stick: `true` / `false` / `{ position?, size?, keys? }`; WASD+arrows on desktop |
+| `joysticks` | `[]` | extra sticks: `[{ id, position?, size?, keys?: {up,down,left,right} }]` — read via `axis(id)`; `keys` gives desktop parity (codes or arrays of codes) |
+| `dpad` | `false` | digital 4-way instead of (or besides) a stick: `true` / `{ id?: 'move', position?, size? }` — writes −1/0/1 to `axis(id)`; pair with `joystick: false` |
+| `joystickSize` | `120` | default stick size in px |
+| `longPressMs` | `450` | default long-press threshold; override per action |
 | `mount` | `document.body` | where the touch overlay goes |
 
-**Handle:** `{ axes, virtual, pressed(id), onPress(id, cb) → off(), destroy() }`.
-The touch UI carries `data-prototir-input="overlay|joystick"` and
-`data-action="{id}"` hooks — restyle it from your own CSS if you want.
+Per-control customization:
+
+- **`position`** — CSS offsets in px or strings, e.g. `{ right: 120, bottom: 40 }` or
+  `{ left: '4vw', top: '50%' }`. Buttons without one auto-stack bottom-right; the move
+  stick defaults bottom-left.
+- **`size`** — px (buttons default 72, sticks 120, d-pad 156). **`shape`** (buttons) —
+  `'round'` (default) or `'square'`.
+- **Press semantics** — `onPress` fires on touch/key down, `onRelease` on up.
+  `onLongPress` fires *at* the threshold while still held (`longPressMs`, per-action
+  override); `onShortPress` fires on release only if the threshold wasn't reached.
+  Identical for keyboard and touch — tap-vs-hold mechanics work everywhere.
+- **Multi-touch** — every stick captures its own pointer, so two thumbs can drive
+  `move` and `look` simultaneously while buttons still fire.
+
+**Handle:** `{ axes, axis(id), virtual, pressed(id), onPress/onRelease/onShortPress/onLongPress(id, cb) → off(), destroy() }`.
+The touch UI carries `data-prototir-input="overlay|joystick|dpad"`,
+`data-stick="{id}"`, `data-action="{id}"` and `data-dir` hooks — restyle it from your
+own CSS if you want. The 0.1 API is a strict subset — existing prototypes keep working
+(and `prefab-input@0.1.0` stays served regardless; module versions are immutable).
+
+A two-stick layout with tap-vs-hold combat in one call:
+
+```js
+const input = createInput({
+	joystick: { position: { left: 24, bottom: 24 }, size: 140 },                 // move
+	joysticks: [{ id: 'look', position: { right: 24, bottom: 150 }, size: 110,
+	              keys: { up: 'KeyI', down: 'KeyK', left: 'KeyJ', right: 'KeyL' } }],
+	actions: [
+		{ id: 'jump',   key: 'Space', label: 'A' },
+		{ id: 'attack', key: 'KeyF', label: '⚔', position: { right: 120, bottom: 40 },
+		  size: 64, shape: 'square', longPressMs: 600 }                          // tap = light, hold = heavy
+	]
+});
+input.onShortPress('attack', lightAttack);
+input.onLongPress('attack', heavyAttack);
+```
 
 Pairs with the rig for a phone-ready character in two lines:
 

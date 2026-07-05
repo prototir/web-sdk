@@ -491,13 +491,13 @@
 		},
 		{
 			"name": "prefab-input",
-			"version": "0.1.0",
+			"version": "0.2.0",
 			"kind": "prefab",
 			"category": "core",
 			"license": "MIT",
 			"source": "prototir",
 			"requires": [],
-			"blurb": "One input API for desktop and mobile: WASD/arrows + mapped keys, or a virtual touch joystick + on-screen buttons — same axes/pressed()/onPress() reads either way.",
+			"blurb": "One input API for desktop and mobile: keyboard, or fully customizable virtual controls — any number of buttons/joysticks/d-pads with position, size, shape and short/long-press semantics; same axes/pressed()/onPress() reads either way.",
 			"status": "available"
 		},
 		{
