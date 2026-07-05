@@ -53,7 +53,10 @@ covers it.
 
 ## Catalog
 
-See `modules.json` for the machine-readable registry. Summary:
+See `modules.json` for the machine-readable registry — each entry carries a
+**`status`** (`available` = servable today · `planned` = catalogued only). Prefab API
+reference + customization recipes (e.g. swapping the third-person puppet for your own
+GLTF): **`PREFABS.md`**. Summary:
 
 | Category | Libraries | Models | Prefabs | Template |
 | --- | --- | --- | --- | --- |
