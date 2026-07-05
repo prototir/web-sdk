@@ -51,6 +51,7 @@ rig.scene.add(myLevel);                     // build your world around it
 | `camera` | `{distance: 5, height: 2.4, lag: 0.08}` | follow-cam framing |
 | `ground` | `true` | 40×40 floor collider + grid; `false` to bring your own |
 | `world` | created | pass an existing `RAPIER.World` to share physics |
+| `input` | built-in keyboard | pass a **`prefab-input` handle** and the same rig runs on mobile (joystick → turn/move, `jump`/`sprint` actions) |
 | `mount` | `document.body` | where the canvas goes |
 | `onUpdate` | — | `(dt, rig)` every frame after physics — your game loop |
 
@@ -73,6 +74,55 @@ const rig = await createThirdPersonRig({ avatar: gltf.scene });
 The rig moves/rotates whatever object you give it (feet at local y≈0, facing −Z).
 Animation mixers are yours to drive from `onUpdate` (a built-in walk/idle animation
 hook is planned for 0.2).
+
+---
+
+## `prefab-input@0.1.0` — available
+
+**One input API for desktop AND mobile.** Desktop: WASD/arrows drive `axes`, mapped keys
+drive actions. Touch devices (auto-detected via coarse pointer, or forced): a virtual
+left joystick drives `axes` and each action gets an on-screen button. Your code reads
+the same three things either way — this is how a prototype honestly declares
+`"devices": "both"`.
+
+```js
+import { createInput } from 'prefab-input';
+const input = createInput({ actions: [{ id: 'jump', key: 'Space', label: 'A' }] });
+// per frame:
+input.axes            // { x: -1..1, y: -1..1 }  (y = forward)
+input.pressed('jump') // held?
+input.onPress('jump', () => …) // edge-triggered
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `actions` | `[]` | `[{ id, key, label? }]` — keyboard key on desktop, round button on touch |
+| `virtual` | `'auto'` | `'auto'` = coarse-pointer devices; `true`/`false` to force |
+| `joystick` | `true` | virtual stick / WASD+arrows → `axes` |
+| `joystickSize` | `120` | px |
+| `mount` | `document.body` | where the touch overlay goes |
+
+**Handle:** `{ axes, virtual, pressed(id), onPress(id, cb) → off(), destroy() }`.
+The touch UI carries `data-prototir-input="overlay|joystick"` and
+`data-action="{id}"` hooks — restyle it from your own CSS if you want.
+
+Pairs with the rig for a phone-ready character in two lines:
+
+```js
+const input = createInput({ actions: [{ id: 'jump', key: 'Space', label: 'A' }, { id: 'sprint', key: 'ShiftLeft', label: '▶▶' }] });
+const rig = await createThirdPersonRig({ input });
+```
+
+### Device targeting (`prototir.json`)
+
+Declare what a prototype is designed for; the platform surfaces it (chip on the watch
+page + a non-blocking "designed for …" note when the player's device doesn't match):
+
+```json
+{ "devices": "desktop" }   // "desktop" | "mobile" | "both" (default)
+```
+
+Use `prefab-input` and you can usually just leave it at `both`.
 
 ---
 
