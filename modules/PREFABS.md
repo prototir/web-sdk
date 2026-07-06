@@ -77,6 +77,48 @@ hook is planned for 0.2).
 
 ---
 
+## `prefab-fps-rig@0.1.0` — available
+
+Batteries-included first-person controller: rapier capsule physics, pointer-lock mouse
+look (click the canvas), WASD/arrows strafe + move, Shift sprint, Space jump. No avatar
+to swap — you see through its eyes; build the level around it.
+
+Requires: `three@0.170.0`, `rapier3d@0.14.0`.
+
+```js
+import { createFpsRig } from 'prefab-fps-rig';
+const rig = await createFpsRig();           // click to lock, WASD to move
+rig.scene.add(myLevel);
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `speed` / `sprint` | `5` / `8` | m/s walk / with Shift |
+| `jumpVelocity` | `6` | m/s upward on Space (grounded only) |
+| `lookSpeed` | `0.0022` | rad per px of pointer-lock mouse movement |
+| `stickLookRate` | `2.4` | rad/s at full look-stick deflection (touch / `axis('look')`) |
+| `pitchLimit` | `1.45` | rad, clamp for looking up/down |
+| `eyeHeight` / `fov` | `1.6` / `75` | camera framing |
+| `pointerLock` | `true` | `false` = drive the view yourself via `rig.look(dYaw, dPitch)` |
+| `ground` | `true` | 40×40 floor collider + grid; `false` to bring your own |
+| `world` | created | pass an existing `RAPIER.World` to share physics |
+| `input` | keyboard+mouse | pass a **`prefab-input` handle** with a `look` stick → two-thumb touch controls |
+| `mount` / `onUpdate` | `document.body` / — | canvas parent / per-frame `(dt, rig)` hook |
+
+**Handle:** `{ THREE, RAPIER, renderer, scene, camera, world, body, look(dYaw, dPitch), position, grounded, yaw, pitch, locked, destroy() }`.
+
+Phone-ready in two calls — the move stick strafes, the `look` stick aims:
+
+```js
+const input = createInput({
+	joysticks: [{ id: 'look', position: { right: 24, bottom: 130 } }],
+	actions: [{ id: 'jump', key: 'Space', label: 'A' }]
+});
+const rig = await createFpsRig({ input });
+```
+
+---
+
 ## `prefab-input@0.2.0` — available
 
 **One input API for desktop AND mobile.** Desktop: keyboard drives axes and actions.
@@ -219,17 +261,17 @@ the real CDN (P2).
 
 ## Planned prefabs (API sketches — subject to change)
 
+The planned set is deliberately small (see PLAN D23): a prefab has to either save real
+bytes (shared cached runtime) or encode a platform constraint (consent, CSP, brokered
+capability) that generated code can't know. Things AI writes well from the raw libs —
+2D game kits over phaser, UI scaffolds, thin wrappers — stay out of the catalog.
+
 | Prefab | Requires | Sketch |
 | --- | --- | --- |
-| `prefab-fps-rig` | three, rapier3d | `createFpsRig({ speed, jumpVelocity, pointerLock: true })` → pointer-lock WASD; same handle shape as thirdperson |
-| `prefab-platformer-2d` | phaser | `createPlatformer({ tilemap, player: {sprite?, coyoteMs} })` — sprite swap is the avatar-equivalent |
-| `prefab-topdown-2d` | phaser | `createTopdown({ player, speed })` — 8-way movement + interaction zones |
-| `prefab-vehicle-rig` | three, rapier3d | `createVehicle({ chassis?, tuning: {grip, accel} })` — chassis mesh swappable like `avatar` |
-| `prefab-hand-controls` | mediapipe-vision | `createHandControls({ onPinch, onMove })` → pointer-like events from hand landmarks |
-| `prefab-voice-input` | model-whisper-tiny | `createVoiceInput({ onTranscript, pushToTalk: 'Space' })` |
-| `prefab-ai-npc` | capability-ai | `createNpc({ persona, memory: 8 })` → `npc.say(text): Promise<reply>` (P3, needs the AI broker) |
-| `prefab-audio-reactive` | meyda | `createAudioReactive({ features: ['rms','centroid'], onFeatures })` |
+| `prefab-hand-controls` | mediapipe-vision | `createHandControls({ onPinch, onMove })` → pointer-like events from hand landmarks (camera consent + CSP wiring) |
+| `prefab-voice-input` | model-whisper-tiny | `createVoiceInput({ onTranscript, pushToTalk: 'Space' })` (mic consent + local model pack) |
+| `prefab-ai-npc` | capability-ai | `createNpc({ persona, memory: 8 })` → `npc.say(text): Promise<reply>` (P3, needs the AI broker — the sandbox has no network of its own) |
 
 Templates (forkable starter prototypes) get published as official open-source prototypes
 once the API can seed them; the `examples/` here (modules-demo, physics-demo,
-thirdperson-demo) are their local stand-ins.
+thirdperson-demo, fps-demo, input-demo) are their local stand-ins.

@@ -60,20 +60,6 @@
 			"status": "available"
 		},
 		{
-			"name": "rapier2d",
-			"version": "0.14.0",
-			"kind": "lib",
-			"category": "game",
-			"license": "Apache-2.0",
-			"source": "npm:@dimforge/rapier2d-compat",
-			"sizeKB": 500,
-			"flags": {
-				"wasm": true
-			},
-			"blurb": "2D physics (WASM).",
-			"status": "planned"
-		},
-		{
 			"name": "matter",
 			"version": "0.20.0",
 			"kind": "lib",
@@ -118,17 +104,6 @@
 			"status": "planned"
 		},
 		{
-			"name": "nipplejs",
-			"version": "0.10.2",
-			"kind": "lib",
-			"category": "game",
-			"license": "MIT",
-			"source": "npm:nipplejs",
-			"sizeKB": 10,
-			"blurb": "Virtual touch joystick — mobile controls in one line.",
-			"status": "planned"
-		},
-		{
 			"name": "lil-gui",
 			"version": "0.20.0",
 			"kind": "lib",
@@ -151,28 +126,6 @@
 			"status": "planned"
 		},
 		{
-			"name": "preact",
-			"version": "10.25.0",
-			"kind": "lib",
-			"category": "app",
-			"license": "MIT",
-			"source": "npm:preact",
-			"sizeKB": 12,
-			"blurb": "3KB React-compatible UI for app/tool prototypes.",
-			"status": "planned"
-		},
-		{
-			"name": "tailwind-play",
-			"version": "3.4.15",
-			"kind": "lib",
-			"category": "app",
-			"license": "MIT",
-			"source": "npm:tailwindcss (play build)",
-			"sizeKB": 110,
-			"blurb": "Utility CSS at runtime — fastest way to style a tool prototype.",
-			"status": "planned"
-		},
-		{
 			"name": "chart",
 			"version": "4.4.7",
 			"kind": "lib",
@@ -192,17 +145,6 @@
 			"source": "npm:d3",
 			"sizeKB": 90,
 			"blurb": "Data-driven documents for bespoke viz.",
-			"status": "planned"
-		},
-		{
-			"name": "rot",
-			"version": "2.2.1",
-			"kind": "lib",
-			"category": "game",
-			"license": "BSD-3-Clause",
-			"source": "npm:rot-js",
-			"sizeKB": 40,
-			"blurb": "Roguelike toolkit (FOV, dungeon gen, turn scheduling).",
 			"status": "planned"
 		},
 		{
@@ -271,20 +213,6 @@
 			"status": "planned"
 		},
 		{
-			"name": "tfjs",
-			"version": "4.22.0",
-			"kind": "lib",
-			"category": "cv",
-			"license": "Apache-2.0",
-			"source": "npm:@tensorflow/tfjs",
-			"sizeKB": 1200,
-			"flags": {
-				"wasm": true
-			},
-			"blurb": "TensorFlow.js runtime for tfjs model packs (coco-ssd, pose-detection).",
-			"status": "planned"
-		},
-		{
 			"name": "model-rfdetr-nano",
 			"version": "1.0.0",
 			"kind": "model",
@@ -296,20 +224,6 @@
 				"onnxruntime-web"
 			],
 			"blurb": "RF-DETR nano object detection weights — real-time DETR in the browser. (YOLOv8 excluded: AGPL.)",
-			"status": "planned"
-		},
-		{
-			"name": "model-coco-ssd",
-			"version": "2.2.3",
-			"kind": "model",
-			"category": "cv",
-			"license": "Apache-2.0",
-			"source": "npm:@tensorflow-models/coco-ssd",
-			"sizeKB": 13000,
-			"requires": [
-				"tfjs"
-			],
-			"blurb": "Lightweight object detection fallback (older, smaller, very battle-tested).",
 			"status": "planned"
 		},
 		{
@@ -354,8 +268,8 @@
 				"three",
 				"rapier3d"
 			],
-			"blurb": "Pointer-lock FPS controller: WASD + capsule collider + jump + touch fallback.",
-			"status": "planned"
+			"blurb": "Pointer-lock FPS controller: WASD strafe + mouse look, capsule physics, jump/sprint — pass a prefab-input handle for two-stick touch controls.",
+			"status": "available"
 		},
 		{
 			"name": "prefab-thirdperson-rig",
@@ -370,46 +284,6 @@
 			],
 			"blurb": "Follow-camera third-person rig with gamepad/touch input.",
 			"status": "available"
-		},
-		{
-			"name": "prefab-platformer-2d",
-			"version": "0.1.0",
-			"kind": "prefab",
-			"category": "game",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"phaser"
-			],
-			"blurb": "2D platformer kit: tilemap loader, coyote time, checkpoints, camera.",
-			"status": "planned"
-		},
-		{
-			"name": "prefab-topdown-2d",
-			"version": "0.1.0",
-			"kind": "prefab",
-			"category": "game",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"phaser"
-			],
-			"blurb": "Top-down kit: 8-way movement, collisions, interaction zones.",
-			"status": "planned"
-		},
-		{
-			"name": "prefab-vehicle-rig",
-			"version": "0.1.0",
-			"kind": "prefab",
-			"category": "game",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"three",
-				"rapier3d"
-			],
-			"blurb": "Raycast vehicle: arcade car handling + chase cam.",
-			"status": "planned"
 		},
 		{
 			"name": "prefab-webcam-cv",
@@ -474,22 +348,6 @@
 			"status": "planned"
 		},
 		{
-			"name": "prefab-audio-reactive",
-			"version": "0.1.0",
-			"kind": "prefab",
-			"category": "art",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"meyda"
-			],
-			"flags": {
-				"microphone": true
-			},
-			"blurb": "Mic/audio features → uniforms/callbacks for reactive visuals.",
-			"status": "planned"
-		},
-		{
 			"name": "prefab-input",
 			"version": "0.2.0",
 			"kind": "prefab",
@@ -525,33 +383,6 @@
 			"status": "planned"
 		},
 		{
-			"name": "template-2d-platformer",
-			"version": "0.1.0",
-			"kind": "template",
-			"category": "game",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"prefab-platformer-2d"
-			],
-			"blurb": "Forkable starter: one polished level + SDK events at checkpoints.",
-			"status": "planned"
-		},
-		{
-			"name": "template-touch-app",
-			"version": "0.1.0",
-			"kind": "template",
-			"category": "app",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"preact",
-				"tailwind-play"
-			],
-			"blurb": "Forkable starter: mobile-first tool shell with SDK instrumentation.",
-			"status": "planned"
-		},
-		{
 			"name": "template-webcam-detector",
 			"version": "0.1.0",
 			"kind": "template",
@@ -576,20 +407,6 @@
 				"prefab-ai-npc"
 			],
 			"blurb": "Forkable starter: a character you talk to; demoes AI quota UX.",
-			"status": "planned"
-		},
-		{
-			"name": "template-audio-visualizer",
-			"version": "0.1.0",
-			"kind": "template",
-			"category": "art",
-			"license": "MIT",
-			"source": "prototir",
-			"requires": [
-				"prefab-audio-reactive",
-				"prefab-shader-canvas"
-			],
-			"blurb": "Forkable starter: mic-reactive shader art.",
 			"status": "planned"
 		},
 		{

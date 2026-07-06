@@ -56,16 +56,25 @@ covers it.
 See `modules.json` for the machine-readable registry — each entry carries a
 **`status`** (`available` = servable today · `planned` = catalogued only). Prefab API
 reference + customization recipes (e.g. swapping the third-person puppet for your own
-GLTF): **`PREFABS.md`**. Summary:
+GLTF): **`PREFABS.md`**.
+
+**Curated on purpose (PLAN D23):** an entry earns its place by saving real bytes
+(shared modules are cached across every prototype — bundles never re-ship a runtime) or
+by encoding a platform constraint (consent, CSP, brokered capabilities, honest mobile
+input). Things AI-assisted creators write trivially from the raw libraries — 2D game
+kits over phaser, UI scaffolds, thin wrappers — and duplicate stacks (tfjs next to
+onnxruntime, rapier2d next to matter, nipplejs next to prefab-input) stay out. Summary:
 
 | Category | Libraries | Models | Prefabs | Template |
 | --- | --- | --- | --- | --- |
-| **core** | three · pixi · lil-gui · seedrandom | — | — | — |
-| **game** | phaser · rapier3d/2d · matter · howler · nipplejs · rot | — | fps-rig · thirdperson-rig · platformer-2d · topdown-2d · vehicle-rig | 3d-thirdperson · 2d-platformer |
-| **app** | preact · tailwind-play · chart · d3 · motion | — | — | touch-app |
-| **art** | p5 · tone · meyda · simplex-noise | — | audio-reactive · shader-canvas | audio-visualizer |
-| **cv** | onnxruntime-web · transformers · mediapipe-vision · tfjs | **rf-detr-nano** · coco-ssd · depth-anything-small | webcam-cv · hand-controls | webcam-detector |
+| **core** | three · pixi · lil-gui · seedrandom | — | **input** | — |
+| **game** | phaser · rapier3d · matter · howler | — | **fps-rig** · **thirdperson-rig** | 3d-thirdperson |
+| **app** | chart · d3 · motion | — | — | — |
+| **art** | p5 · tone · meyda · simplex-noise | — | **shader-canvas** | — |
+| **cv** | onnxruntime-web · transformers · mediapipe-vision | **rf-detr-nano** · depth-anything-small | **webcam-cv** · hand-controls | webcam-detector |
 | **ai** | — | whisper-tiny (local ASR) | ai-npc · voice-input | ai-chat-toy |
+
+(Bold prefabs = built and servable today.)
 
 ## Rollout
 
