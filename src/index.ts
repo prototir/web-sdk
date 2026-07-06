@@ -37,6 +37,10 @@ export interface PrototirSdk {
 	/** Per-prototype key-value persistence, brokered by the shell (D22). The sandboxed
 	 * iframe has no reliable localStorage of its own. */
 	storage: PrototirStorage;
+	/** Deterministic seeded RNG (D23 — a platform primitive, not a dependency): same seed →
+	 * same sequence on every device, so daily challenges and leaderboard runs are fair.
+	 * Returns a function yielding floats in [0, 1). Runs locally; nothing leaves the frame. */
+	rng(seed?: string | number): () => number;
 }
 
 /**
@@ -93,6 +97,33 @@ function storageRequest(op: 'get' | 'set' | 'remove', key: string, value?: strin
 	});
 }
 
+/** xmur3 string hash → four sfc32 seeds. Public-domain constructions (Bryc). */
+function rng(seed: string | number = 'prototir'): () => number {
+	const str = String(seed);
+	let h = 1779033703 ^ str.length;
+	for (let i = 0; i < str.length; i++) {
+		h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+		h = (h << 13) | (h >>> 19);
+	}
+	const next = () => {
+		h = Math.imul(h ^ (h >>> 16), 2246822507);
+		h = Math.imul(h ^ (h >>> 13), 3266489909);
+		return (h ^= h >>> 16) >>> 0;
+	};
+	let a = next(), b = next(), c = next(), d = next();
+	return () => {
+		a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+		let t = (a + b) | 0;
+		a = b ^ (b >>> 9);
+		b = (c + (c << 3)) | 0;
+		c = (c << 21) | (c >>> 11);
+		d = (d + 1) | 0;
+		t = (t + d) | 0;
+		c = (c + t) | 0;
+		return (t >>> 0) / 4294967296;
+	};
+}
+
 export const Prototir: PrototirSdk = {
 	ready() {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'ready' });
@@ -103,6 +134,7 @@ export const Prototir: PrototirSdk = {
 	score(value) {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'score', value });
 	},
+	rng,
 	storage: {
 		async get(key) {
 			return storageRequest('get', key);

@@ -67,14 +67,36 @@ onnxruntime, rapier2d next to matter, nipplejs next to prefab-input) stay out. S
 
 | Category | Libraries | Models | Prefabs | Template |
 | --- | --- | --- | --- | --- |
-| **core** | three · pixi · lil-gui · seedrandom | — | **input** | — |
-| **game** | phaser · rapier3d · matter · howler | — | **fps-rig** · **thirdperson-rig** | 3d-thirdperson |
+| **core** | three · pixi · lil-gui | — | **input** | — |
+| **game** | phaser · rapier3d · matter | — | **fps-rig** · **thirdperson-rig** · **audio** | 3d-thirdperson |
 | **app** | chart · d3 · motion | — | — | — |
-| **art** | p5 · tone · meyda · simplex-noise | — | **shader-canvas** | — |
+| **art** | p5 (2.x) · tone · simplex-noise | — | **shader-canvas** · **sketch** · **audio-features** | — |
 | **cv** | onnxruntime-web · transformers · mediapipe-vision | **rf-detr-nano** · depth-anything-small | **webcam-cv** · hand-controls | webcam-detector |
 | **ai** | — | whisper-tiny (local ASR) | ai-npc · voice-input | ai-chat-toy |
 
-(Bold prefabs = built and servable today.)
+(Bold prefabs = built and servable today.) **Replaced per D23** — unmaintained/duplicative
+externals swapped for Prototir-built: `seedrandom` → SDK **`Prototir.rng(seed)`**
+(deterministic runs are a platform primitive now), `howler` → **`prefab-audio`** (raw Web
+Audio, ~2KB), `meyda` → **`prefab-audio-features`** (native AnalyserNode, ~2KB); p5 bumped
+to 2.x with **`prefab-sketch`** (~1KB) as the byte-light art path.
+
+## Naming & kinds (how creators tell things apart)
+
+The name prefix *is* the taxonomy — no docs needed to know what something is:
+
+- **bare npm name** (`three`, `phaser`, `d3`) = third-party **library**; you `import` it
+  exactly like from npm.
+- **`prefab-…`** = Prototir-built scaffold; exports one **`create<Noun>()`** factory
+  returning a handle with `destroy()` (see PREFABS.md for the full convention).
+- **`model-…`** = weights pack (data, no code); pairs with a runtime lib.
+- **`template-…`** = official **forkable starter prototype** — it never appears in an
+  import map; you fork it from its prototype page (§8 flow).
+- **`capability-…`** = SDK-brokered platform feature (`Prototir.storage`, `Prototir.ai`,
+  `Prototir.rng`); nothing to download, version is `sdk`.
+
+Human-browsable catalog: the webapp's **`/modules`** page (grouped by kind + genre with
+status/size/permissions). Machine-readable: `modules.json` (this repo) → served as
+`/modules/registry.json`.
 
 ## Rollout
 

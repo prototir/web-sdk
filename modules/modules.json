@@ -36,13 +36,13 @@
 		},
 		{
 			"name": "p5",
-			"version": "1.11.0",
+			"version": "2.0.2",
 			"kind": "lib",
 			"category": "art",
 			"license": "LGPL-2.1",
 			"source": "npm:p5",
 			"sizeKB": 210,
-			"blurb": "Creative coding. Served unmodified (LGPL case-by-case).",
+			"blurb": "Creative coding (p5 2.x). Served unmodified (LGPL case-by-case). For byte-light sketches see prefab-sketch.",
 			"status": "planned"
 		},
 		{
@@ -71,17 +71,6 @@
 			"status": "planned"
 		},
 		{
-			"name": "howler",
-			"version": "2.2.4",
-			"kind": "lib",
-			"category": "game",
-			"license": "MIT",
-			"source": "npm:howler",
-			"sizeKB": 10,
-			"blurb": "Audio playback / sprites.",
-			"status": "planned"
-		},
-		{
 			"name": "tone",
 			"version": "15.0.4",
 			"kind": "lib",
@@ -90,17 +79,6 @@
 			"source": "npm:tone",
 			"sizeKB": 180,
 			"blurb": "Web Audio synthesis & scheduling.",
-			"status": "planned"
-		},
-		{
-			"name": "meyda",
-			"version": "5.6.3",
-			"kind": "lib",
-			"category": "art",
-			"license": "MIT",
-			"source": "npm:meyda",
-			"sizeKB": 40,
-			"blurb": "Real-time audio feature extraction (for audio-reactive visuals).",
 			"status": "planned"
 		},
 		{
@@ -157,17 +135,6 @@
 			"sizeKB": 3,
 			"blurb": "Procedural noise.",
 			"status": "available"
-		},
-		{
-			"name": "seedrandom",
-			"version": "3.0.5",
-			"kind": "lib",
-			"category": "core",
-			"license": "MIT",
-			"source": "npm:seedrandom",
-			"sizeKB": 2,
-			"blurb": "Deterministic RNG — reproducible runs, fair challenge leaderboards.",
-			"status": "planned"
 		},
 		{
 			"name": "onnxruntime-web",
@@ -256,6 +223,45 @@
 			],
 			"blurb": "Monocular depth from the webcam — parallax/AR-ish effects.",
 			"status": "planned"
+		},
+		{
+			"name": "prefab-audio",
+			"version": "0.1.0",
+			"kind": "prefab",
+			"category": "game",
+			"license": "MIT",
+			"source": "prototir",
+			"requires": [],
+			"sizeKB": 2,
+			"blurb": "Game/app audio over raw Web Audio: load samples from your bundle, play with volume/rate/loop, zero-asset beeps. Replaces maintenance-mode audio shims.",
+			"status": "available"
+		},
+		{
+			"name": "prefab-audio-features",
+			"version": "0.1.0",
+			"kind": "prefab",
+			"category": "art",
+			"license": "MIT",
+			"source": "prototir",
+			"requires": [],
+			"sizeKB": 2,
+			"flags": {
+				"microphone": true
+			},
+			"blurb": "Audio-reactive features from a native AnalyserNode: rms, energy, spectral centroid + raw bins. Mic (with consent) or any AudioNode/MediaStream.",
+			"status": "available"
+		},
+		{
+			"name": "prefab-sketch",
+			"version": "0.1.0",
+			"kind": "prefab",
+			"category": "art",
+			"license": "MIT",
+			"source": "prototir",
+			"requires": [],
+			"sizeKB": 1,
+			"blurb": "The byte-light creative-coding loop: full-window 2D canvas, dpr scaling, resize, draw(ctx, {t, dt, mouse}) — p5 ergonomics at ~1KB.",
+			"status": "available"
 		},
 		{
 			"name": "prefab-fps-rig",

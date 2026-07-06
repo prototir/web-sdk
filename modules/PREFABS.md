@@ -10,6 +10,21 @@ declared in `prototir.json`:
 **Status:** `available` = servable today · `planned` = catalogued, not yet built.
 The machine-readable source of truth is `modules.json` (`status` field).
 
+## Naming (how you tell things apart)
+
+Every module name tells you its kind before you read a single doc:
+
+| Prefix | Kind | What it is | How you use it |
+| --- | --- | --- | --- |
+| *(bare name)* | **lib** | Third-party runtime (`three`, `phaser`, `d3`) — the npm name, npm semantics | `import … from 'three'` |
+| `prefab-` | **prefab** | Prototir-built scaffold; exports exactly one `create<Noun>()` factory | `import { createInput } from 'prefab-input'` |
+| `model-` | **model** | Weights pack (data, no code); requires a runtime lib | referenced by a runtime session |
+| `template-` | **template** | Official forkable starter *prototype* — you fork it, you don't import it | Fork button on its prototype page |
+| `capability-` | **capability** | SDK-brokered platform feature; nothing to download (version `sdk`) | `Prototir.storage`, `Prototir.ai`, `Prototir.rng` |
+
+The human-browsable catalog lives at **`/modules`** in the webapp (grouped by kind +
+genre, with status and sizes); the machine-readable source is `modules.json`.
+
 ## The prefab convention (all prefabs follow it)
 
 1. **A factory, not a framework.** Each prefab exports one `create…()` function taking a
@@ -223,6 +238,90 @@ const sc = createShaderCanvas({ fragment: myGlsl });   // your shader IS the opt
 | `onFrame` | — | `(t)` per frame — drive game logic / SDK events |
 
 **Handle:** `{ canvas, destroy() }`.
+
+---
+
+## `prefab-sketch@0.1.0` — available
+
+The **byte-light creative-coding loop** (~1KB): full-window 2D canvas, devicePixelRatio
+scaling, resize handling, and a `draw` loop with time/delta/mouse — p5's setup/draw
+ergonomics without shipping 200KB. (p5 stays in the catalog for Processing-style
+sketches; use this when load speed matters.)
+
+```js
+import { createSketch } from 'prefab-sketch';
+createSketch({
+	draw(ctx, { t, width, height, mouse }) {
+		ctx.fillStyle = '#0a0a0a'; ctx.fillRect(0, 0, width, height);
+		ctx.strokeStyle = '#ededed';
+		ctx.strokeRect(mouse.x - 20 + Math.sin(t) * 10, mouse.y - 20, 40, 40);
+	}
+});
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `setup` / `draw` | — | `(ctx, s)` once / every frame; `s = { t, dt, frame, width, height, mouse: {x, y, down} }` |
+| `canvas` | created full-window | render into your own `<canvas>` |
+| `dpr` | `min(devicePixelRatio, 2)` | pixel density (you draw in CSS pixels) |
+| `clear` | `false` | auto-`clearRect` each frame |
+| `mount` | `document.body` | canvas parent |
+
+**Handle:** `{ canvas, ctx, state, destroy() }`.
+Pairs with `Prototir.rng(seed)` for deterministic generative art (same seed → same
+piece on every device).
+
+---
+
+## `prefab-audio@0.1.0` — available
+
+Game/app audio over **raw Web Audio** (~2KB) — sample playback from your own bundle
+plus zero-asset synth beeps. Replaces maintenance-mode audio shims (howler was dropped
+from the catalog per D23): the AudioContext resumes on first user gesture automatically.
+
+```js
+import { createAudio } from 'prefab-audio';
+const audio = createAudio();
+await audio.load('coin', 'assets/coin.ogg');  // same-origin fetch from YOUR bundle
+audio.play('coin', { volume: 0.8, rate: 1.2 });
+audio.beep(880, 0.08);                        // UI blip, no asset needed
+```
+
+| Option / member | Default | What it does |
+| --- | --- | --- |
+| `volume` (option + property) | `1` | master gain |
+| `load(name, url)` | — | fetch + decode a sample (relative URL = your bundle) |
+| `play(name, {volume, rate, loop})` | — | returns `{ stop(), source, gain }` |
+| `beep(freq, duration, {volume, type})` | `880, 0.08` | synth blip (sine/square/…) |
+| `stopAll()` / `destroy()` | — | panic button / teardown |
+
+**Handle also exposes:** `{ ctx, master }` — patch your own Web Audio graph in.
+
+---
+
+## `prefab-audio-features@0.1.0` — available
+
+Audio-reactive features from a **native `AnalyserNode`** (~2KB): `rms` (loudness),
+`energy`, `spectral centroid` (brightness) + the raw frequency bins. Covers the common
+audio-reactive visuals without a feature-extraction library. Microphone input needs
+`"permissions": ["microphone"]` in `prototir.json` (player consent); any `AudioNode` or
+`MediaStream` works too — pair with `prefab-audio` to react to your own soundtrack.
+
+```js
+import { createAudioFeatures } from 'prefab-audio-features';
+const af = await createAudioFeatures({
+	onFeatures({ rms, energy, centroid }) { blob.scale = 1 + rms * 4; }
+});
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `source` | `'microphone'` | `'microphone'` \| `MediaStream` \| `AudioNode` |
+| `context` | created | share an AudioContext (e.g. from `prefab-audio`) |
+| `fftSize` / `smoothing` | `1024` / `0.8` | AnalyserNode tuning |
+| `onFeatures` | — | `(features)` per animation frame; or poll `handle.features` |
+
+**Handle:** `{ features: { rms, energy, centroid, freq }, analyser, ctx, stream, destroy() }`.
 
 ---
 
