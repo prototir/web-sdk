@@ -171,13 +171,13 @@
 			"category": "cv",
 			"license": "Apache-2.0",
 			"source": "npm:@mediapipe/tasks-vision",
-			"sizeKB": 3000,
+			"sizeKB": 9800,
 			"flags": {
 				"wasm": true,
 				"camera": true
 			},
 			"blurb": "Hands / pose / face landmarks — realtime body-driven interaction.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "model-rfdetr-nano",
@@ -317,11 +317,12 @@
 			"requires": [
 				"mediapipe-vision"
 			],
+			"sizeKB": 7640,
 			"flags": {
 				"camera": true
 			},
-			"blurb": "Hand landmarks → pointer/pinch/grab events; drive any prototype by hand.",
-			"status": "planned"
+			"blurb": "Hand landmarks → pointer/pinch events; camera + MediaPipe HandLandmarker + its model weights bundled in, no separate model pack needed.",
+			"status": "available"
 		},
 		{
 			"name": "prefab-voice-input",
@@ -385,8 +386,9 @@
 			"requires": [
 				"prefab-thirdperson-rig"
 			],
+			"prototypeSlug": "template-3d-thirdperson",
 			"blurb": "Forkable starter: playable 3D scene, score wired to Prototir.score.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "template-webcam-detector",

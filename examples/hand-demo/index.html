@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Hand-controls demo — prefab-hand-controls</title>
+<script type="importmap">{"imports":{"mediapipe-vision":"/modules/mediapipe-vision@0.10.18/vision_bundle.mjs","prefab-hand-controls":"/modules/prefab-hand-controls@0.1.0/index.js"}}</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #0a0a0a; overflow: hidden; }
+	#hud { position: fixed; top: 10px; left: 10px; color: #ededed; font: 12px ui-monospace, monospace; }
+	#cursor {
+		position: fixed; left: 50%; top: 50%; width: 24px; height: 24px; border-radius: 50%;
+		border: 2px solid #ededed; transform: translate(-50%, -50%); pointer-events: none;
+	}
+	#cursor.pinch { background: #ededed; }
+</style>
+</head>
+<body>
+<div id="hud">hand-demo · loading…</div>
+<div id="cursor"></div>
+<script src="/prototir.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

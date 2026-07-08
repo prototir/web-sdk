@@ -358,6 +358,42 @@ the real CDN (P2).
 
 ---
 
+## `prefab-hand-controls@0.1.0` — available
+
+Hand landmarks → pointer/pinch events. Wraps MediaPipe's `HandLandmarker`
+(`mediapipe-vision`): owns the camera, the model session, and the detection loop, and
+turns landmarks into two callbacks. Its model asset (`hand_landmarker.task`, ~7.6MB)
+ships right alongside the module — no external network calls, so it works under the
+sandbox's `connect-src 'self'` CSP. Requires `"permissions": ["camera"]` in
+`prototir.json`.
+
+```js
+import { createHandControls } from 'prefab-hand-controls';
+const hand = await createHandControls({
+	onMove({ x, y }) { cursor.style.left = `${x * 100}%`; cursor.style.top = `${y * 100}%`; },
+	onPinch({ x, y, down }) { down ? grab() : release(); }
+});
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `onMove` | — | `({x, y})` normalized index-fingertip position, called every frame a hand is seen |
+| `onPinch` | — | `({x, y, down})` fires only on the thumb/index pinch state *changing* |
+| `pinchThreshold` | `0.07` | normalized thumb–index distance below which it counts as a pinch |
+| `numHands` | `1` | landmarker detects up to this many; `onMove`/`onPinch` track the first |
+| `mirror` | `true` | flip x so the pointer feels natural against a front-facing camera |
+| `showPreview` | `true` | show a small camera preview (bottom-right); `false` for pointer-only |
+| `delegate` | `'CPU'` | MediaPipe inference backend — `'GPU'` is faster in a real browser but needs WebGL |
+
+**Handle:** `{ video, stream, landmarker, destroy() }`. Landmark indices follow
+MediaPipe's hand model (4 = thumb tip, 8 = index fingertip). E2E-verified with a fake
+camera device under the real sandbox CSP: model + WASM load, camera stream attaches,
+the detection loop runs every frame, and `destroy()` tears down cleanly — zero console
+errors (MediaPipe's own "Created TensorFlow Lite XNNPACK delegate" line is a benign
+backend-confirmation log, not an error, despite the console level it uses).
+
+---
+
 ## Planned prefabs (API sketches — subject to change)
 
 The planned set is deliberately small (see PLAN D23): a prefab has to either save real
@@ -367,7 +403,6 @@ capability) that generated code can't know. Things AI writes well from the raw l
 
 | Prefab | Requires | Sketch |
 | --- | --- | --- |
-| `prefab-hand-controls` | mediapipe-vision | `createHandControls({ onPinch, onMove })` → pointer-like events from hand landmarks (camera consent + CSP wiring) |
 | `prefab-voice-input` | model-whisper-tiny | `createVoiceInput({ onTranscript, pushToTalk: 'Space' })` (mic consent + local model pack) |
 | `prefab-ai-npc` | capability-ai | `createNpc({ persona, memory: 8 })` → `npc.say(text): Promise<reply>` (P3, needs the AI broker — the sandbox has no network of its own) |
 
