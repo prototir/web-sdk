@@ -394,6 +394,39 @@ backend-confirmation log, not an error, despite the console level it uses).
 
 ---
 
+## `prefab-ai-npc@0.1.0` — available
+
+A conversational NPC on `Prototir.ai` (§16): a persona system-prompt + a rolling
+conversation window over the stateless `Prototir.ai.complete()` broker call, so
+`createNpc()` feels like a character with memory rather than a one-shot completion.
+Requires `capability-ai` — nothing to import for that part, `window.Prototir` is set by
+the SDK script tag.
+
+```js
+import { createNpc } from 'prefab-ai-npc';
+const npc = createNpc({ persona: 'A grumpy dockworker who loves puzzles.' });
+const reply = await npc.say('Hello there!');
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `persona` | `'A friendly, helpful character.'` | system-prompt describing who the NPC is |
+| `memory` | `8` | how many past user+NPC exchanges stay in context |
+| `provider` | `'anthropic'` | which `Prototir.ai` provider to call |
+| `model` | — | override the provider's default model |
+| `maxTokens` | `300` | per-reply cap, passed straight to `Prototir.ai.complete()` |
+| `onReply` | — | `(reply, text)` — fires alongside the returned promise resolving |
+| `onError` | — | `(error)` — fires alongside the returned promise rejecting; `error` is `{code, message}` |
+
+**Handle:** `{ persona, history, say(text): Promise<string>, destroy() }`. `say()` rejects
+(and doesn't add the unanswered turn to `history`) on any broker failure — missing key,
+quota exceeded, content-safety rejection, or not running inside the real Prototir shell —
+so a creator's `catch` block is the place to show a friendly message per `error.code`. See
+`template-ai-chat-toy` (its local stand-in is `examples/ai-chat-toy-demo`) for a worked
+example mapping every error code to in-character copy.
+
+---
+
 ## Planned prefabs (API sketches — subject to change)
 
 The planned set is deliberately small (see PLAN D23): a prefab has to either save real
@@ -403,9 +436,8 @@ capability) that generated code can't know. Things AI writes well from the raw l
 
 | Prefab | Requires | Sketch |
 | --- | --- | --- |
-| `prefab-voice-input` | model-whisper-tiny | `createVoiceInput({ onTranscript, pushToTalk: 'Space' })` (mic consent + local model pack) |
-| `prefab-ai-npc` | capability-ai | `createNpc({ persona, memory: 8 })` → `npc.say(text): Promise<reply>` (P3, needs the AI broker — the sandbox has no network of its own) |
+| `prefab-voice-input` | model-whisper-tiny | `createVoiceInput({ onTranscript, pushToTalk: 'Space' })` (mic consent + local model pack) — deferred alongside its 40MB model weights, which need real CDN hosting (P2) |
 
 Templates (forkable starter prototypes) get published as official open-source prototypes
 once the API can seed them; the `examples/` here (modules-demo, physics-demo,
-thirdperson-demo, fps-demo, input-demo) are their local stand-ins.
+thirdperson-demo, fps-demo, input-demo, ai-chat-toy-demo) are their local stand-ins.

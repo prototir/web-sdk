@@ -18,10 +18,10 @@
 			"kind": "lib",
 			"category": "core",
 			"license": "MIT",
-			"source": "npm:pixi.js",
-			"sizeKB": 120,
+			"source": "npm:pixi.js (dist/pixi.min.mjs — the package's own lib/index.mjs imports bare earcut/eventemitter3, unservable as-is)",
+			"sizeKB": 180,
 			"blurb": "Fast 2D WebGL renderer.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "phaser",
@@ -30,9 +30,9 @@
 			"category": "game",
 			"license": "MIT",
 			"source": "npm:phaser",
-			"sizeKB": 320,
+			"sizeKB": 1207,
 			"blurb": "Batteries-included 2D game framework (scenes, tilemaps, arcade physics).",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "p5",
@@ -40,10 +40,10 @@
 			"kind": "lib",
 			"category": "art",
 			"license": "LGPL-2.1",
-			"source": "npm:p5",
-			"sizeKB": 210,
-			"blurb": "Creative coding (p5 2.x). Served unmodified (LGPL case-by-case). For byte-light sketches see prefab-sketch.",
-			"status": "planned"
+			"source": "npm:p5 (esbuild-bundled — no single-file browser ESM shipped; see tools/bundle-vendor.mjs)",
+			"sizeKB": 309,
+			"blurb": "Creative coding (p5 2.x). For byte-light sketches see prefab-sketch.",
+			"status": "available"
 		},
 		{
 			"name": "rapier3d",
@@ -65,10 +65,10 @@
 			"kind": "lib",
 			"category": "game",
 			"license": "MIT",
-			"source": "npm:matter-js",
-			"sizeKB": 80,
+			"source": "npm:matter-js (esbuild-bundled — package ships UMD/CJS only, no ESM build; see tools/bundle-vendor.mjs)",
+			"sizeKB": 26,
 			"blurb": "Lightweight 2D physics (no WASM).",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "tone",
@@ -76,10 +76,10 @@
 			"kind": "lib",
 			"category": "art",
 			"license": "MIT",
-			"source": "npm:tone",
-			"sizeKB": 180,
+			"source": "npm:tone (esbuild-bundled — package ships UMD only under 'unpkg'; its 'module' entry is real ESM but has un-inlined tslib/standardized-audio-context deps, so it still needs bundling; see tools/bundle-vendor.mjs)",
+			"sizeKB": 81,
 			"blurb": "Web Audio synthesis & scheduling.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "lil-gui",
@@ -88,9 +88,9 @@
 			"category": "core",
 			"license": "MIT",
 			"source": "npm:lil-gui",
-			"sizeKB": 12,
+			"sizeKB": 14,
 			"blurb": "Tiny tweak-panel for exposing prototype parameters.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "motion",
@@ -98,10 +98,10 @@
 			"kind": "lib",
 			"category": "app",
 			"license": "MIT",
-			"source": "npm:motion",
-			"sizeKB": 40,
-			"blurb": "Animation library (vanilla Motion One API). GSAP excluded: proprietary license forbids self-CDN redistribution.",
-			"status": "planned"
+			"source": "npm:motion (esbuild-bundled — its ESM re-exports from sibling packages framer-motion/motion-dom/motion-utils via relative paths that escape the served package root; see tools/bundle-vendor.mjs). GSAP excluded: proprietary license forbids self-CDN redistribution.",
+			"sizeKB": 23,
+			"blurb": "Animation library (vanilla Motion One API).",
+			"status": "available"
 		},
 		{
 			"name": "chart",
@@ -110,9 +110,9 @@
 			"category": "app",
 			"license": "MIT",
 			"source": "npm:chart.js",
-			"sizeKB": 70,
+			"sizeKB": 78,
 			"blurb": "Charts for dashboard/tool prototypes.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "d3",
@@ -120,10 +120,10 @@
 			"kind": "lib",
 			"category": "app",
 			"license": "ISC",
-			"source": "npm:d3",
-			"sizeKB": 90,
+			"source": "npm:d3 (esbuild-bundled — package ships either a UMD build or an unbundled source split across ~29 separate d3-* packages, no single-file browser ESM; see tools/bundle-vendor.mjs)",
+			"sizeKB": 93,
 			"blurb": "Data-driven documents for bespoke viz.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "simplex-noise",
@@ -351,8 +351,8 @@
 			"flags": {
 				"ai": true
 			},
-			"blurb": "Conversational NPC on Prototir.ai: persona prompt + rolling memory + typed reply events.",
-			"status": "planned"
+			"blurb": "Conversational NPC on Prototir.ai: persona prompt + rolling memory + typed reply/error callbacks.",
+			"status": "available"
 		},
 		{
 			"name": "prefab-input",
@@ -415,7 +415,7 @@
 				"prefab-ai-npc"
 			],
 			"blurb": "Forkable starter: a character you talk to; demoes AI quota UX.",
-			"status": "planned"
+			"status": "available"
 		},
 		{
 			"name": "capability-ai",

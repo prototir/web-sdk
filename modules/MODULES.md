@@ -72,7 +72,7 @@ onnxruntime, rapier2d next to matter, nipplejs next to prefab-input) stay out. S
 | **app** | chart · d3 · motion | — | — | — |
 | **art** | p5 (2.x) · tone · simplex-noise | — | **shader-canvas** · **sketch** · **audio-features** | — |
 | **cv** | onnxruntime-web · transformers · mediapipe-vision | **rf-detr-nano** · depth-anything-small | **webcam-cv** · hand-controls | webcam-detector |
-| **ai** | — | whisper-tiny (local ASR) | ai-npc · voice-input | ai-chat-toy |
+| **ai** | — | whisper-tiny (local ASR) | **ai-npc** · voice-input | ai-chat-toy |
 
 (Bold prefabs = built and servable today.) **Replaced per D23** — unmaintained/duplicative
 externals swapped for Prototir-built: `seedrandom` → SDK **`Prototir.rng(seed)`**

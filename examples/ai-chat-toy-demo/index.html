@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>AI chat toy — prefab-ai-npc</title>
+<script type="importmap">{"imports":{"prefab-ai-npc":"/modules/prefab-ai-npc@0.1.0/index.js"}}</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #0a0a0a; color: #ededed; font: 14px ui-monospace, monospace; }
+	#app { display: flex; flex-direction: column; height: 100%; max-width: 480px; margin: 0 auto; padding: 12px; box-sizing: border-box; }
+	#log { flex: 1; overflow-y: auto; border: 1px solid #333; padding: 8px; margin-bottom: 8px; }
+	#log p { margin: 4px 0; }
+	#log p.user { color: #7dd3a0; }
+	#log p.npc { color: #ededed; }
+	#form { display: flex; gap: 8px; }
+	#text { flex: 1; background: transparent; color: #ededed; border: 1px solid #333; padding: 8px; font: inherit; }
+	button { background: #ededed; color: #0a0a0a; border: none; padding: 8px 16px; font: inherit; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+	<div id="log"><p class="npc">Milo: Evening. Storm's rolling in — mind the steps.</p></div>
+	<form id="form">
+		<input id="text" type="text" placeholder="Say something to Milo…" autocomplete="off">
+		<button type="submit">Send</button>
+	</form>
+</div>
+<script src="/prototir.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
