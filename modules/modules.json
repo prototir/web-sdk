@@ -424,8 +424,8 @@
 			"category": "ai",
 			"license": "-",
 			"source": "Prototir.ai via Player Shell postMessage → platform proxy",
-			"blurb": "Brokered LLM access (chat/complete). The sandbox has connect-src 'none'; AI calls hop through the shell to a platform-metered, moderated proxy. Tier-gated quotas.",
-			"status": "planned"
+			"blurb": "Brokered LLM access (chat/complete) across six provider families (Anthropic, OpenAI, Google, Mistral, xAI, Llama-via-Groq). The sandbox has connect-src 'none'; AI calls hop through the shell to a platform-metered, moderated proxy. Tier-gated platform quota (Anthropic), or bring-your-own-key (creator's or player's own saved key) for any provider.",
+			"status": "available"
 		},
 		{
 			"name": "capability-storage",

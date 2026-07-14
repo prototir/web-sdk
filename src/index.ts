@@ -2,7 +2,8 @@ import {
 	PROTOTIR_SOURCE,
 	PROTOTIR_PROTOCOL_VERSION,
 	isShellMessage,
-	type PrototypeMessage
+	type PrototypeMessage,
+	type AiProviderName
 } from './protocol';
 
 /**
@@ -27,6 +28,31 @@ export interface PrototirStorage {
 	remove(key: string): Promise<void>;
 }
 
+export interface PrototirAiCompleteOptions {
+	provider: AiProviderName;
+	prompt: string;
+	/** Provider model id. Omit to use the platform's/registry's cheap default for the provider. */
+	model?: string;
+	maxTokens?: number;
+	/** Override the default 30s timeout for this call. */
+	timeoutMs?: number;
+}
+
+/** Machine-readable failure from a `Prototir.ai.complete()` call — e.g. "missing_user_key"
+ * when the mode requires the player's own saved key and they haven't added one yet. */
+export interface PrototirAiError {
+	code: string;
+	message: string;
+}
+
+export interface PrototirAi {
+	/** Ask the shell to broker an LLM completion (§16), resolved per however this prototype's
+	 * AiMode is configured (platform quota, creator's own key, or the calling player's own
+	 * key). Rejects with a {@link PrototirAiError} on failure/timeout — never resolves to an
+	 * empty string on error. */
+	complete(options: PrototirAiCompleteOptions): Promise<string>;
+}
+
 export interface PrototirSdk {
 	/** Signal the prototype is loaded and interactive (starts the real session). */
 	ready(): void;
@@ -37,6 +63,8 @@ export interface PrototirSdk {
 	/** Per-prototype key-value persistence, brokered by the shell (D22). The sandboxed
 	 * iframe has no reliable localStorage of its own. */
 	storage: PrototirStorage;
+	/** `Prototir.ai` (§16): a brokered LLM call, resolved per the prototype's configured AiMode. */
+	ai: PrototirAi;
 	/** Deterministic seeded RNG (D23 — a platform primitive, not a dependency): same seed →
 	 * same sequence on every device, so daily challenges and leaderboard runs are fair.
 	 * Returns a function yielding floats in [0, 1). Runs locally; nothing leaves the frame. */
@@ -97,6 +125,59 @@ function storageRequest(op: 'get' | 'set' | 'remove', key: string, value?: strin
 	});
 }
 
+// ---- Prototir.ai plumbing: request/response over postMessage, matched by id ----
+// Real network latency (unlike storage, which is fully client-side in the shell), so this
+// gets its own, much longer default timeout and rejects with a machine-readable error
+// instead of degrading to a null/empty value.
+
+const AI_TIMEOUT_MS = 30000;
+let nextAiId = 1;
+const pendingAi = new Map<
+	number,
+	{ resolve: (text: string) => void; reject: (err: PrototirAiError) => void }
+>();
+
+if (typeof window !== 'undefined') {
+	window.addEventListener('message', (e: MessageEvent) => {
+		if (e.source !== window.parent || !isShellMessage(e.data)) return;
+		if (e.data.type !== 'ai:result') return;
+		const entry = pendingAi.get(e.data.id);
+		if (!entry) return;
+		pendingAi.delete(e.data.id);
+		if (e.data.error) entry.reject(e.data.error);
+		else entry.resolve(e.data.text ?? '');
+	});
+}
+
+function aiRequest(options: PrototirAiCompleteOptions): Promise<string> {
+	return new Promise((resolve, reject) => {
+		if (typeof window === 'undefined' || window.parent === window) {
+			reject({
+				code: 'not_framed',
+				message: 'Prototir.ai is only available when running inside the Prototir shell.'
+			});
+			return;
+		}
+		const id = nextAiId++;
+		pendingAi.set(id, { resolve, reject });
+		post({
+			source: PROTOTIR_SOURCE,
+			v: PROTOTIR_PROTOCOL_VERSION,
+			type: 'ai',
+			provider: options.provider,
+			prompt: options.prompt,
+			model: options.model,
+			maxTokens: options.maxTokens,
+			id
+		});
+		setTimeout(() => {
+			if (pendingAi.delete(id)) {
+				reject({ code: 'timeout', message: 'Prototir.ai request timed out.' });
+			}
+		}, options.timeoutMs ?? AI_TIMEOUT_MS);
+	});
+}
+
 /** xmur3 string hash → four sfc32 seeds. Public-domain constructions (Bryc). */
 function rng(seed: string | number = 'prototir'): () => number {
 	const str = String(seed);
@@ -144,6 +225,11 @@ export const Prototir: PrototirSdk = {
 		},
 		async remove(key) {
 			await storageRequest('remove', key);
+		}
+	},
+	ai: {
+		async complete(options) {
+			return aiRequest(options);
 		}
 	}
 };
