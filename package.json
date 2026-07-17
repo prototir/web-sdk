@@ -10,6 +10,7 @@
 	"files": ["dist"],
 	"scripts": {
 		"build": "tsup",
+		"build:cdn": "npm run build && node tools/build-cdn.mjs",
 		"dev": "tsup --watch",
 		"typecheck": "tsc --noEmit",
 		"serve": "node tools/serve.mjs",

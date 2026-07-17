@@ -11,7 +11,7 @@ import {
  * `window.Prototir` after including the script:
  *
  * ```html
- * <script src="https://cdn.prototir.com/sdk/v1/prototir.js"></script>
+ * <script src="https://cdn.prototir.com/sdk/v0.0.1/prototir.js"></script>
  * <script>
  *   Prototir.ready();
  *   Prototir.event('level_complete', { level: 2 });

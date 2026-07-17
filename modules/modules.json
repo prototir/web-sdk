@@ -110,7 +110,7 @@
 			"category": "app",
 			"license": "MIT",
 			"source": "npm:chart.js",
-			"sizeKB": 78,
+			"sizeKB": 69,
 			"blurb": "Charts for dashboard/tool prototypes.",
 			"status": "available"
 		},

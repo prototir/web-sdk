@@ -8,7 +8,7 @@ in the iframe — can't fake it. See `../prototir-webapp/PLAN.md` §7 & §10.
 ## Usage (in a prototype)
 
 ```html
-<script src="https://cdn.prototir.com/sdk/v1/prototir.js"></script>
+<script src="https://cdn.prototir.com/sdk/v0.0.1/prototir.js"></script>
 <script>
 	Prototir.ready(); // loaded & interactive — starts the session
 	Prototir.event('level_complete', { level: 2 }); // milestone → analytics / points
@@ -35,6 +35,7 @@ own origin to the prototype via a `prototir_origin` query param so the SDK posts
 ```bash
 npm install
 npm run build      # → dist/prototir.js (IIFE global) + dist/prototir.mjs (ESM) + types
+npm run build:cdn  # → .cdn-dist/sdk/{package-version}/ + SHA-384 manifest
 npm run start      # build, then serve demo prototypes at http://localhost:8080/{slug}/
 ```
 
