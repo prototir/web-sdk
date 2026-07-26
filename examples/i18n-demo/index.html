@@ -1,0 +1,28 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>i18n demo — prefab-i18n</title>
+<script type="importmap">{"imports":{"prefab-i18n":"/modules/prefab-i18n@0.1.0/index.js"}}</script>
+<style>
+	html, body { margin: 0; height: 100%; background: #030a12; color: #e8eef6;
+		font: 15px/1.6 ui-sans-serif, system-ui, sans-serif; }
+	main { display: grid; place-content: center; gap: 12px; height: 100%; text-align: center; padding: 24px; }
+	h1 { font-size: 1.6rem; margin: 0; }
+	button { border-radius: 999px; border: 1px solid #2b4a6b; background: #0a1626;
+		color: inherit; padding: 8px 16px; font: inherit; cursor: pointer; }
+	#locale { font-family: ui-monospace, monospace; font-size: 12px; color: #7fd4ff; }
+</style>
+</head>
+<body>
+<main>
+	<h1 id="title">…</h1>
+	<p id="greeting"></p>
+	<p id="coins"></p>
+	<button id="switch" type="button">…</button>
+	<button id="say" type="button">▶ audio</button>
+	<p id="locale"></p>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

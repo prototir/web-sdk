@@ -67,7 +67,7 @@ onnxruntime, rapier2d next to matter, nipplejs next to prefab-input) stay out. S
 
 | Category | Libraries | Models | Prefabs | Template |
 | --- | --- | --- | --- | --- |
-| **core** | three · pixi · lil-gui | — | **input** | — |
+| **core** | three · pixi · lil-gui | — | **input** · **i18n** | — |
 | **game** | phaser · rapier3d · matter | — | **fps-rig** · **thirdperson-rig** · **audio** | 3d-thirdperson |
 | **app** | chart · d3 · motion | — | — | — |
 | **art** | p5 (2.x) · tone · simplex-noise | — | **shader-canvas** · **sketch** · **audio-features** | — |

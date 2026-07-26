@@ -1,0 +1,6 @@
+{
+	"title": "Localized prototype",
+	"greeting": "Hello, {name}!",
+	"coins": { "one": "{count} coin", "other": "{count} coins" },
+	"switch": "Switch language"
+}

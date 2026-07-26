@@ -427,6 +427,77 @@ example mapping every error code to in-character copy.
 
 ---
 
+## `prefab-i18n@0.1.0` — available
+
+Localized **strings and voice-over**, resolved entirely from your own bundle.
+
+Inside the sandbox a prototype has no network beyond its own origin and the module CDN,
+so the usual approach — pulling locale files from a translation service at runtime —
+cannot run at all. This prefab is built around that constraint: everything comes from
+your bundle, and **only the active locale is ever fetched**, so the languages a given
+player doesn't use (including their audio) cost them nothing.
+
+```json
+{ "modules": ["prefab-i18n@0.1.0"] }
+```
+
+```js
+import { createI18n } from 'prefab-i18n';
+
+const i18n = await createI18n({
+  locales: ['en', 'it', 'ja'],
+  fallback: 'en',
+  loadStrings: (locale) => fetch(`locales/${locale}.json`).then((r) => r.json()),
+  audio: { base: 'audio', locales: ['en', 'it'], map: { intro: 'intro.mp3' } },
+  onChange: render
+});
+
+i18n.t('greeting', { name: 'Ada' });   // "Ciao, Ada!" for an Italian player
+i18n.t('coins', { count: 3 });         // Intl.PluralRules picks one/other
+await i18n.playAudio('intro');         // audio/it/intro.mp3
+await i18n.setLocale('ja');            // loads ja.json on demand
+```
+
+| Option | Default | What it does |
+| --- | --- | --- |
+| `locales` | `['en']` | Every locale this prototype publishes. |
+| `fallback` | first locale | Used whenever a key is missing from the active locale. |
+| `locale` | negotiated | Force a locale instead of negotiating one. |
+| `preferred` | `navigator.languages` | Preference list to negotiate against. |
+| `strings` | `{}` | Inline tables, for small prototypes that skip fetching. |
+| `loadStrings` | `null` | `(locale) => Promise<table>` — lazy-load one file per locale. |
+| `audio.base` | `null` | Folder holding `{base}/{locale}/{file}`. |
+| `audio.locales` | all `locales` | **Which languages you actually recorded** (see below). |
+| `audio.map` | `{}` | `key → filename`, the same filename in every locale folder. |
+| `onChange` | `null` | Called with the new locale after `setLocale()`. |
+
+Handle: `t(key, vars)` · `locale` · `locales` · `fallback` · `audioLocales` ·
+`setLocale(next)` · `number(v, opts)` · `date(v, opts)` · `audioUrlFor(key)` ·
+`preloadAudio(keys?)` · `playAudio(key, {volume, loop})` · `stopAudio()` · `tables` ·
+`destroy()`.
+
+**Set `audio.locales` honestly.** Recording voice-over for every published language is
+rare, and the prefab has no way to know which ones you did — if you leave it at the
+default it will hand back a URL for a language you never recorded and the player gets a
+404. Listing only the recorded languages makes `audioUrlFor`/`playAudio` fall back to
+the fallback locale's clip instead, which is what a player expects. (This was a real bug
+caught by the prefab's own E2E run, not a hypothetical.)
+
+**Plurals, numbers and dates use the browser's `Intl`** — no rule tables ship in your
+bundle. A plural entry is an object keyed by CLDR categories: `{ "one": "{count} coin",
+"other": "{count} coins" }`; pass `count` and the right form is selected for the active
+locale. Locales that only need `other` (Japanese, Chinese) just provide that key.
+
+**Missing keys never throw** — `t()` tries the active locale, then the fallback, then
+returns the key itself so the gap is visible in-place rather than crashing a scene.
+
+Live example: `prototir-sdk/examples/i18n-demo` (three locales, two with voice-over,
+runtime language switching).
+
+**Bundle-size note:** localized audio lives in your bundle and counts against your plan's
+upload limit (§12). Lazy loading saves the *player's* bandwidth, not your quota — for
+many languages of voice-over, budget accordingly or ship fewer recorded locales.
+
 ## Planned prefabs (API sketches — subject to change)
 
 The planned set is deliberately small (see PLAN D23): a prefab has to either save real

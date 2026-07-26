@@ -1,0 +1,6 @@
+{
+	"title": "ローカライズされたプロトタイプ",
+	"greeting": "こんにちは、{name}さん！",
+	"coins": { "other": "{count} コイン" },
+	"switch": "言語を切り替える"
+}

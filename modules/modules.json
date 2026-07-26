@@ -355,6 +355,17 @@
 			"status": "available"
 		},
 		{
+			"name": "prefab-i18n",
+			"version": "0.1.0",
+			"kind": "prefab",
+			"category": "core",
+			"license": "MIT",
+			"source": "prototir",
+			"sizeKB": 3,
+			"blurb": "Localized strings and voice-over from your own bundle: Intl plurals/number/date, per-locale lazy loading, audio fallback chain.",
+			"status": "available"
+		},
+		{
 			"name": "prefab-input",
 			"version": "0.2.0",
 			"kind": "prefab",
