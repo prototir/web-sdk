@@ -1,0 +1,7 @@
+{
+	"name": "3D Third-Person Starter",
+	"description": "Forkable starter: rapier capsule + follow cam + WASD/sprint/jump, score wired to Prototir.score. Fork it and swap the avatar.",
+	"type": "game",
+	"devices": "both",
+	"modules": ["three@0.170.0", "rapier3d@0.14.0", "prefab-thirdperson-rig@0.1.0"]
+}
