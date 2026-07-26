@@ -3,13 +3,13 @@
 	"modules": [
 		{
 			"name": "three",
-			"version": "0.170.0",
+			"version": "0.185.1",
 			"kind": "lib",
 			"category": "core",
 			"license": "MIT",
 			"source": "npm:three",
-			"sizeKB": 170,
-			"blurb": "3D rendering — the workhorse for game/art prototypes.",
+			"sizeKB": 404,
+			"blurb": "3D rendering — the workhorse for game/art prototypes. (r185 splits into module+core files, both platform-served; r170 stays available.)",
 			"status": "available"
 		},
 		{
@@ -25,13 +25,13 @@
 		},
 		{
 			"name": "phaser",
-			"version": "3.87.0",
+			"version": "4.2.1",
 			"kind": "lib",
 			"category": "game",
 			"license": "MIT",
 			"source": "npm:phaser",
-			"sizeKB": 1207,
-			"blurb": "Batteries-included 2D game framework (scenes, tilemaps, arcade physics).",
+			"sizeKB": 1430,
+			"blurb": "Batteries-included 2D game framework (scenes, tilemaps, arcade physics). (Phaser 4; the 3.87 API stays available as phaser@3.87.0.)",
 			"status": "available"
 		},
 		{
@@ -47,16 +47,16 @@
 		},
 		{
 			"name": "rapier3d",
-			"version": "0.14.0",
+			"version": "0.19.3",
 			"kind": "lib",
 			"category": "game",
 			"license": "Apache-2.0",
 			"source": "npm:@dimforge/rapier3d-compat",
-			"sizeKB": 900,
+			"sizeKB": 1386,
 			"flags": {
 				"wasm": true
 			},
-			"blurb": "3D physics (WASM). Pairs with three.",
+			"blurb": "3D physics (WASM). Pairs with three. (0.19 fetches its .wasm beside the module instead of embedding it; 0.14 stays available.)",
 			"status": "available"
 		},
 		{
@@ -94,12 +94,12 @@
 		},
 		{
 			"name": "motion",
-			"version": "11.15.0",
+			"version": "12.42.2",
 			"kind": "lib",
 			"category": "app",
 			"license": "MIT",
 			"source": "npm:motion (esbuild-bundled — its ESM re-exports from sibling packages framer-motion/motion-dom/motion-utils via relative paths that escape the served package root; see tools/bundle-vendor.mjs). GSAP excluded: proprietary license forbids self-CDN redistribution.",
-			"sizeKB": 23,
+			"sizeKB": 46,
 			"blurb": "Animation library (vanilla Motion One API).",
 			"status": "available"
 		},
@@ -138,12 +138,12 @@
 		},
 		{
 			"name": "onnxruntime-web",
-			"version": "1.20.1",
+			"version": "1.27.0",
 			"kind": "lib",
 			"category": "cv",
 			"license": "MIT",
 			"source": "npm:onnxruntime-web",
-			"sizeKB": 1400,
+			"sizeKB": 3470,
 			"flags": {
 				"wasm": true
 			},
