@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#04101a" />
+    <title>Module Lab: prefab-sketch</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="lab-shell">
+      <section
+        class="stage"
+        aria-label="Interactive prefab-sketch demonstration"
+      >
+        <canvas id="sketch"></canvas>
+        <div class="stage-copy">
+          <p class="eyebrow">Live output</p>
+          <h1>Move. Press. Draw.</h1>
+          <p>
+            Move your pointer through the field. Hold or tap to emit a pulse.
+          </p>
+        </div>
+        <div class="telemetry" aria-live="polite">
+          <span><b id="fps">—</b> FPS</span>
+          <span><b id="frame">0</b> FRAME</span>
+          <span><b id="size">—</b> CANVAS</span>
+          <span><b id="pointer">—</b> POINTER</span>
+        </div>
+      </section>
+
+      <aside class="guide" aria-labelledby="guide-title">
+        <header>
+          <div>
+            <p class="eyebrow">Prototir module lab</p>
+            <h2 id="guide-title">prefab-sketch</h2>
+            <code>prefab-sketch@0.1.0</code>
+          </div>
+          <span class="status">Available · 1 KB</span>
+        </header>
+
+        <section>
+          <h3>What it gives you</h3>
+          <p>
+            A tiny, production-ready 2D canvas loop with animation timing,
+            high-DPI scaling, responsive resizing, and unified pointer/touch
+            coordinates.
+          </p>
+        </section>
+
+        <section>
+          <h3>Why use it</h3>
+          <ul>
+            <li>
+              Start generative art or visual experiments without canvas
+              boilerplate.
+            </li>
+            <li>
+              Draw in CSS pixels while the module handles sharp high-DPI output.
+            </li>
+            <li>
+              Receive consistent time, delta, frame, size, and pointer state
+              every frame.
+            </li>
+          </ul>
+        </section>
+
+        <section>
+          <h3>Change the live demo</h3>
+          <div class="controls">
+            <label
+              ><input id="trails" type="checkbox" checked /> Motion
+              trails</label
+            >
+            <label
+              ><input id="grid" type="checkbox" checked /> Construction
+              grid</label
+            >
+            <button id="reset" type="button">Reset field</button>
+          </div>
+        </section>
+
+        <section>
+          <h3>The essential code</h3>
+          <pre><code>import { createSketch } from 'prefab-sketch';
+
+createSketch({
+  draw(ctx, { t, dt, width, height, mouse }) {
+    // Render one responsive frame.
+  }
+});</code></pre>
+        </section>
+
+        <section>
+          <h3>Complete API · 0.1.0</h3>
+          <div
+            class="api-table"
+            role="table"
+            aria-label="prefab-sketch API reference"
+          >
+            <div class="api-row api-head" role="row">
+              <span role="columnheader">Member</span>
+              <span role="columnheader">Default / value</span>
+              <span role="columnheader">Purpose</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>createSketch(options)</code><span>→ handle</span
+              ><span>Creates, sizes, and starts the sketch.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>options.setup(ctx, state)</code><span>—</span
+              ><span>Runs once after the first resize.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>options.draw(ctx, state)</code><span>—</span
+              ><span>Runs on every animation frame.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>options.canvas</code><span>created</span
+              ><span>Use an existing canvas or create one.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>options.mount</code><span>document.body</span
+              ><span>Parent for a created canvas.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>options.dpr</code><span>min(devicePixelRatio, 2)</span
+              ><span>Pixel density; drawing stays in CSS pixels.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>options.clear</code><span>false</span
+              ><span>Clear the canvas before each draw.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>state.t / dt</code><span>seconds</span
+              ><span>Total time / capped frame delta (max 0.05).</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>state.frame</code><span>number</span
+              ><span>One-based rendered frame counter.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>state.width / height</code><span>CSS pixels</span
+              ><span>Current canvas display size.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>state.mouse</code><span>{ x, y, down }</span
+              ><span>Unified pointer position and pressed state.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>handle.canvas / ctx / state</code
+              ><span>live references</span
+              ><span>Canvas, 2D context, and mutable state.</span>
+            </div>
+            <div class="api-row" role="row">
+              <code>handle.destroy()</code><span>void</span
+              ><span>Stops RAF, removes listeners and a created canvas.</span>
+            </div>
+          </div>
+        </section>
+
+        <footer>
+          <span>No permissions</span>
+          <span>Desktop + mobile</span>
+          <span>MIT</span>
+        </footer>
+      </aside>
+    </main>
+
+    <script src="https://cdn.prototir.com/sdk/v0.0.1/prototir.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

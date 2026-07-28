@@ -1,0 +1,15 @@
+{
+  "name": "Module Lab: prefab-sketch",
+  "description": "A live, inspectable demonstration of Prototir's lightweight canvas loop, including pointer input, resize handling, high-DPI scaling, animation timing, and source code.",
+  "type": "art",
+  "tags": ["Creative coding", "Canvas", "Module demo"],
+  "entry": "index.html",
+  "thumbnail": "auto",
+  "modules": ["prefab-sketch@0.1.0"],
+  "permissions": [],
+  "devices": "both",
+  "orientation": "any",
+  "ai": {
+    "mode": "disabled"
+  }
+}

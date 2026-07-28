@@ -14,8 +14,9 @@ Curated, versioned, **platform-served** building blocks that prototypes can decl
    Shell: `Prototir.ai`, `Prototir.storage`, camera/mic consent. They exist because of
    the sandbox (below).
 
-**Templates** are full starter prototypes published by the official Prototir account as
-open-source — the existing **fork/download** flow (§8) *is* the template system.
+**Templates** are full open-source starter prototypes published through the ordinary creator
+workflow by Prototir or community creators — the existing **fork/download** flow (§8) *is* the
+template system.
 
 ## Why this can't just be npm
 
@@ -57,6 +58,13 @@ See `modules.json` for the machine-readable registry — each entry carries a
 **`status`** (`available` = servable today · `planned` = catalogued only). Prefab API
 reference + customization recipes (e.g. swapping the third-person puppet for your own
 GLTF): **`PREFABS.md`**.
+
+Admins can associate an available entry with a real, unlisted, open-source prototype published by
+the ordinary Prototir creator account. The association is stored in the platform database and the
+`/modules` catalog renders it as **See in action**. Because the target is Unlisted it is omitted
+from Discover, feeds, profiles, recommendations, and Picks; anyone following the catalog link can
+still play it and download or remix its source. Demos keep comments and tips disabled and put their
+controls, explanation, telemetry, and representative code inside the prototype itself.
 
 **Curated on purpose (PLAN D23):** an entry earns its place by saving real bytes
 (shared modules are cached across every prototype — bundles never re-ship a runtime) or
