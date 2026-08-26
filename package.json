@@ -1,0 +1,43 @@
+{
+	"name": "@prototir/web-sdk",
+	"version": "0.1.0",
+	"description": "Browser SDK for Prototir prototypes: lifecycle, analytics, scores, storage, managed AI, and deterministic random numbers.",
+	"license": "MIT",
+	"homepage": "https://prototir.com/docs/creators?runtime=web#setup",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/prototir/web-sdk.git"
+	},
+	"bugs": {
+		"url": "https://github.com/prototir/web-sdk/issues"
+	},
+	"type": "module",
+	"main": "./dist/prototir.mjs",
+	"module": "./dist/prototir.mjs",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/prototir.mjs",
+			"default": "./dist/prototir.mjs"
+		}
+	},
+	"unpkg": "./dist/prototir.js",
+	"jsdelivr": "./dist/prototir.js",
+	"files": ["dist"],
+	"scripts": {
+		"build": "tsup",
+		"build:cdn": "npm run build && node tools/build-cdn.mjs",
+		"dev": "tsup --watch",
+		"test": "npm run build && node tools/test.mjs",
+		"typecheck": "tsc --noEmit",
+		"check": "npm run typecheck && npm test"
+	},
+	"engines": {
+		"node": ">=20"
+	},
+	"devDependencies": {
+		"tsup": "^8.5.0",
+		"typescript": "^5.9.2"
+	}
+}
