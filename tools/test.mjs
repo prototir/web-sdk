@@ -70,4 +70,19 @@ const first = Array.from({ length: 4 }, () => firstGenerator());
 const second = Array.from({ length: 4 }, () => secondGenerator());
 assert.deepEqual(first, second);
 
+// Host origin resolution is shared with the review overlay, so both stay online on the
+// same URLs. Engine exports that drop the query string supply the origin in the hash.
+for (const [href, expected] of [
+  ['https://p.prttr.com/?prototir_origin=https%3A%2F%2Fprototir.com', 'https://prototir.com'],
+  ['https://p.prttr.com/#prototir_origin=https%3A%2F%2Fprototir.com', 'https://prototir.com'],
+  ['https://p.prttr.com/?prototir_origin=https%3A%2F%2Fa.com#prototir_origin=https%3A%2F%2Fb.com', 'https://a.com'],
+  ['https://p.prttr.com/', '*'],
+  ['https://p.prttr.com/?prototir_origin=javascript%3Aalert(1)', '*'],
+  ['https://p.prttr.com/?prototir_origin=not-a-url', '*']
+]) {
+  window.location.href = href;
+  sdk.ready();
+  assert.equal(sent.at(-1).origin, expected, `origin for ${href}`);
+}
+
 console.log('Web SDK protocol and validation checks passed.');

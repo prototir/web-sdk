@@ -1,3 +1,7 @@
+import { review } from './review';
+import { resolveHostOrigin } from './host-origin';
+export * from './review-document';
+export type { ReviewOptions } from './review';
 import {
 	PROTOTIR_SOURCE,
 	PROTOTIR_PROTOCOL_VERSION,
@@ -37,6 +41,7 @@ export interface PrototirAi {
 }
 
 export interface PrototirSdk {
+ review: typeof review;
 	/** Signal that the prototype is loaded and genuinely interactive. */
 	ready(): void;
 	/** Record a stable analytics event with an optional small, non-personal payload. */
@@ -74,25 +79,8 @@ const pendingAi = new Map<
 	}
 >();
 
-function normalizeHttpOrigin(value: string): string {
-	const url = new URL(value);
-	if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-		throw new TypeError('Unsupported Prototir host origin.');
-	}
-	return url.origin;
-}
-
 function resolveTargetOrigin(): string {
-	try {
-		const url = new URL(window.location.href);
-		const candidate =
-			url.searchParams.get('prototir_origin') ??
-			new URLSearchParams(url.hash.replace(/^#/, '')).get('prototir_origin');
-		if (candidate) return normalizeHttpOrigin(candidate);
-	} catch {
-		// An opaque or malformed location cannot reveal the parent origin.
-	}
-	return '*';
+	return resolveHostOrigin('*');
 }
 
 function post(message: PrototypeMessage): void {
@@ -267,6 +255,7 @@ function rng(seed: string | number = 'prototir'): () => number {
 }
 
 export const Prototir: PrototirSdk = {
+ review,
 	ready() {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'ready' });
 	},
