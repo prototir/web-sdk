@@ -74,7 +74,15 @@ function send(op: string, payload: unknown = {}): Promise<any> {
 function receive(event: MessageEvent) {
   if (event.source !== window.parent || event.origin !== hostOrigin) return;
   const m = event.data;
-  if (m?.source !== 'prototir' || m.v !== 1 || m.type !== 'review:result') return;
+  if (m?.source !== 'prototir' || m.v !== 1) return;
+  // The Prototir player owns the entry point on its own surfaces, so it opens the panel from
+  // its chrome rather than the SDK floating a second button over the same view.
+  if (m.type === 'review:command') {
+    if (m.op === 'open' && options) show(true);
+    else if (m.op === 'close' && options) show(false);
+    return;
+  }
+  if (m.type !== 'review:result') return;
   const pending = requests.get(m.id);
   if (!pending) return;
   clearTimeout(pending.timer); requests.delete(m.id);
