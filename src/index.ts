@@ -1,6 +1,7 @@
 import { review } from './review';
 import { resolveHostOrigin } from './host-origin';
 export * from './review-document';
+export * from './theme';
 export type { ReviewOptions } from './review';
 import {
 	PROTOTIR_SOURCE,

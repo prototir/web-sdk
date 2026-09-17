@@ -1,4 +1,5 @@
 import { resolveHostOrigin } from './host-origin';
+import { sanitizeTheme, themeCss } from './theme';
 import { MAX_REVIEW_BYTES, parseReviewDocument, type ReviewDocument, type ReviewThread } from './review-document';
 
 export interface ReviewOptions {
@@ -16,6 +17,8 @@ export interface ReviewOptions {
    * - `host`: never draw one; the surrounding app calls `review.open()`.
    */
   launcher?: 'auto' | 'watermark' | 'host';
+  /** The panel floats over someone else's game, so it follows the player by default. */
+  theme?: 'auto' | 'light' | 'dark';
   /** Where "Open on Prototir" points from a self-hosted build. */
   prototypeUrl?: string;
   /** A developer-owned fullscreen container containing both canvas and overlay. */
@@ -29,12 +32,15 @@ let root: ShadowRoot;
 let host: HTMLElement;
 let panel: HTMLElement;
 let launcher: HTMLElement;
+let style: HTMLStyleElement;
+let baseCss = '';
+const listeners = new Map<string, Set<(detail: any) => void>>();
 let menu: HTMLElement;
 let list: HTMLElement;
 let status: HTMLElement;
 let preview: HTMLImageElement;
 let pin: HTMLElement;
-let input: HTMLTextAreaElement;
+let input_: HTMLTextAreaElement;
 let author: HTMLInputElement;
 let contextInput: HTMLInputElement;
 let saveButton: HTMLButtonElement;
@@ -123,9 +129,17 @@ function show(open: boolean) {
   if (open) {
     document.exitPointerLock?.();
     options?.onOpenChange?.(true);
+    emit('open');
     (panel.querySelector('button') as HTMLButtonElement)?.focus();
-  } else options?.onOpenChange?.(false);
+  } else { options?.onOpenChange?.(false); emit('close'); }
 }
+/** Notifies listeners without letting one bad handler break the overlay. */
+function emit(event: string, detail?: unknown) {
+  for (const handler of listeners.get(event) ?? []) {
+    try { handler(detail); } catch { /* A subscriber's failure is not the overlay's problem. */ }
+  }
+}
+
 function setMenu(open: boolean) {
   if (!menu) return;
   menu.hidden = !open;
@@ -206,8 +220,8 @@ function render() {
       doc = parseReviewDocument(JSON.stringify({ ...doc, threads: doc.threads.map(t => t.id === thread.id ? next : t) }));
       changed(); render();
     }), button('Edit', () => {
-      editing = thread.id; input.value = thread.text; contextInput.value = thread.context;
-      x = thread.x; y = thread.y; setImage(thread.image); input.focus();
+      editing = thread.id; input_.value = thread.text; contextInput.value = thread.context;
+      x = thread.x; y = thread.y; setImage(thread.image); input_.focus();
     }), button(thread.resolved ? 'Reopen' : 'Resolve', () => {
       thread.resolved = !thread.resolved; changed(); render();
     }));
@@ -216,26 +230,28 @@ function render() {
 }
 async function save() {
   if (busy) return;
-  if (!image || !input.value.trim()) throw new Error('Add a screenshot and a comment first.');
+  if (!image || !input_.value.trim()) throw new Error('Add a screenshot and a comment first.');
   busy = true; saveButton.disabled = true;
   try {
     if (online) {
-      const payload = { text: input.value.trim(), screenshot: { image, x, y, context: contextInput.value } };
+      const payload = { text: input_.value.trim(), screenshot: { image, x, y, context: contextInput.value } };
       const serialized = JSON.stringify(payload);
       if (submission.payload !== serialized) submission = { payload: serialized, id: uid() };
       await send('create', { ...payload, clientId: submission.id });
       submission = { payload: '', id: '' };
       message('Posted to the prototype’s comments.');
+      emit('submit', { online: true });
     } else {
       const old = doc.threads.find(t => t.id === editing);
       const thread: ReviewThread = { id: old?.id ?? uid(), author: old?.author ?? (author.value.trim() || 'Tester'),
-        createdAt: old?.createdAt ?? new Date().toISOString(), text: input.value.trim(), image, x, y,
+        createdAt: old?.createdAt ?? new Date().toISOString(), text: input_.value.trim(), image, x, y,
         context: contextInput.value, resolved: old?.resolved ?? false, replies: old?.replies ?? [] };
       const next = { ...doc, threads: old ? doc.threads.map(t => t.id === old.id ? thread : t) : [...doc.threads, thread] };
       doc = parseReviewDocument(JSON.stringify(next)); changed(); render();
       message('Saved in this review. Export the file to share it.');
+      emit('submit', { online: false });
     }
-    input.value = ''; editing = null; setImage('');
+    input_.value = ''; editing = null; setImage('');
   } finally { busy = false; saveButton.disabled = false; }
 }
 async function saveFile() {
@@ -263,31 +279,32 @@ function enable(config: ReviewOptions) {
   host = el('div'); host.dataset.prototirReview = 'true';
   host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none';
   (config.container ?? document.body).append(host); root = host.attachShadow({ mode: 'open' });
-  const css = el('style');
-  css.textContent = `
-    :host{font:14px/1.45 system-ui,sans-serif;color:#19252d;color-scheme:light}
+  const css = style = el('style');
+  baseCss = `
+    :host{font:14px/1.45 system-ui,sans-serif;color:var(--ptr-ink)}
     *{box-sizing:border-box} [hidden]{display:none!important}
-    button{font:inherit;border:1px solid #c3cdd2;background:#fff;color:#19252d;border-radius:8px;padding:9px 12px;cursor:pointer}
-    button:hover{background:#edf5f4}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #0f8b79;outline-offset:2px}
+    button{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px;cursor:pointer}
+    button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
     .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch;gap:8px}
-    .mark{display:inline-flex;align-items:center;gap:8px;background:#123f3b;color:white;box-shadow:0 3px 20px #0004;border-color:#123f3b}
-    .mark:hover{background:#1a5651}
-    .mark-dot{width:18px;height:18px;border-radius:6px;background:#3ddc97;flex:none}
-    .menu{display:flex;flex-direction:column;gap:6px;background:#f9fbfb;border:1px solid #b9c7cc;border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;min-width:230px}
+    .mark{display:inline-flex;align-items:center;gap:8px;background:var(--ptr-accent);color:var(--ptr-accent-ink);box-shadow:0 3px 20px #0004;border-color:var(--ptr-accent)}
+    .mark:hover{filter:brightness(1.08)}
+    .mark-dot{width:18px;height:18px;border-radius:6px;background:var(--ptr-accent-ink);opacity:.9;flex:none}
+    .menu{display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;min-width:230px}
     .menu button,.menu a{width:100%;text-align:left;text-decoration:none;display:block}
-    .menu a{font:inherit;border:1px solid #c3cdd2;background:#fff;color:#19252d;border-radius:8px;padding:9px 12px}
-    .menu a:hover{background:#edf5f4}
-    .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:#f9fbfb;border:1px solid #b9c7cc;border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
+    .menu a{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px}
+    .menu a:hover{background:var(--ptr-surface)}
+    .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-    h2{margin:0;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:#53646d}
-    textarea,input{font:inherit;padding:10px;border:1px solid #b9c7cc;border-radius:7px;width:100%;background:white;color:#19252d}
+    h2{margin:0;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:var(--ptr-muted)}
+    textarea,input{font:inherit;padding:10px;border:1px solid var(--ptr-line);border-radius:7px;width:100%;background:var(--ptr-surface-raised);color:var(--ptr-ink)}
     textarea{min-height:80px;resize:vertical}label{display:block;margin-top:10px}
     .shot{position:relative;display:table;max-width:100%;margin:12px 0}.shot img{display:block;max-width:100%;max-height:420px;width:auto;height:auto}
-    .pin{position:absolute;transform:translate(-50%,-50%);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;background:#087e70;color:white;border:2px solid white;pointer-events:none}
-    article{margin-top:16px;padding-top:16px;border-top:1px solid #d7e0e3}article button{margin:6px 6px 0 0}
-    [role=status]{min-height:24px;color:#315f56}
+    .pin{position:absolute;transform:translate(-50%,-50%);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;background:var(--ptr-accent);color:var(--ptr-accent-ink);border:2px solid var(--ptr-background);pointer-events:none}
+    article{margin-top:16px;padding-top:16px;border-top:1px solid var(--ptr-line)}article button{margin:6px 6px 0 0}
+    [role=status]{min-height:24px;color:var(--ptr-muted)}
     @media(max-width:560px){.panel{inset:8px;width:calc(100% - 16px);max-height:calc(100% - 16px);padding:14px}}
   `;
+  css.textContent = themeCss(config.theme ?? 'auto') + baseCss;
   root.append(css);
   // The way in. On Prototir the player draws its own control beside Restart and Fullscreen, so
   // a second floating button there would read as a bug; everywhere else the SDK draws the
@@ -364,8 +381,8 @@ function enable(config: ReviewOptions) {
   const authorLabel = el('label','Name in exported files (unverified)'); authorLabel.append(author); panel.append(authorLabel);
   contextInput = el('input'); contextInput.maxLength = 500;
   const contextLabel = el('label','Scene / build / reproduction context'); contextLabel.append(contextInput); panel.append(contextLabel);
-  input = el('textarea'); input.maxLength = 2000;
-  const inputLabel = el('label','Comment'); inputLabel.append(input); panel.append(inputLabel);
+  input_ = el('textarea'); input_.maxLength = 2000;
+  const inputLabel = el('label','Comment'); inputLabel.append(input_); panel.append(inputLabel);
   saveButton = button('Save screenshot comment', save); panel.append(saveButton);
   status = el('p'); status.setAttribute('role','status'); panel.append(status);
   list = el('div'); panel.append(list); root.append(launcher,panel);
@@ -393,6 +410,10 @@ function enable(config: ReviewOptions) {
     if (token !== generation) return;
     if (value?.mode === 'disabled') { disable(); return; }
     online = true; saveButton.textContent = 'Post to comments';
+    // The host knows its own live tokens, so the panel can match the page it floats over at no
+    // network cost. Values are colour-validated before reaching the stylesheet.
+    const hostTheme = sanitizeTheme((value as { theme?: unknown } | undefined)?.theme);
+    if (Object.keys(hostTheme).length) style.textContent = themeCss(config.theme ?? 'auto', hostTheme) + baseCss;
     applyLauncher(config.launcher ?? 'auto', value?.launcher !== 'sdk');
     message('Screenshot comments are visible to everyone who can access this prototype.');
   }).catch(() => message('Local review mode. Save a file to share feedback.'));
@@ -410,11 +431,42 @@ function disable() {
   for (const request of requests.values()) { clearTimeout(request.timer); request.reject(new Error('Review closed.')); }
   requests.clear(); host?.remove(); options = null; online = false; opened = false; image = ''; editing = null; fileHandle = null; dirty = false; busy = false;
 }
+export type ReviewEvent = 'open' | 'close' | 'submit' | 'error';
+
 export const review = {
   enable, disable,
   open: () => { if (options) show(true); },
   importDocument,
   exportDocument: () => JSON.stringify(parseReviewDocument(JSON.stringify(doc))),
   /** Engine adapters can submit an end-of-frame screenshot without JS evaluation. */
-  attach: async (data: string) => { if (options) { setImage(await compress(data)); show(true); } }
+  attach: async (data: string) => { if (options) { setImage(await compress(data)); show(true); } },
+
+  /**
+   * Takes a screenshot now and opens the composer. Bind it to a key, or call it the moment the
+   * game notices its own failure, so a tester is handed a report instead of having to file one.
+   */
+  capture: async () => { if (!options) return; show(true); await capture(); },
+
+  /**
+   * Opens the composer already filled in. `image` accepts a PNG/JPEG/WebP data URL for cases
+   * where the game has a better frame than a live capture would give (the frame before a crash,
+   * a rendered diff); without it the current view is captured.
+   */
+  compose: async (input: { text?: string; context?: string; image?: string } = {}) => {
+    if (!options) return;
+    show(true);
+    if (input.image) setImage(await compress(input.image));
+    else await capture();
+    if (input.text !== undefined) input_.value = input.text.slice(0, 2000);
+    // A caller-supplied context replaces the `context` callback's value for this one report.
+    if (input.context !== undefined) contextInput.value = input.context.slice(0, 500);
+    input_.focus();
+  },
+
+  /** Subscribes to overlay events. Returns an unsubscribe function. */
+  on: (event: ReviewEvent, handler: (detail?: unknown) => void) => {
+    const set = listeners.get(event) ?? new Set();
+    set.add(handler); listeners.set(event, set);
+    return () => { set.delete(handler); };
+  }
 };
