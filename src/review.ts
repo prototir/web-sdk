@@ -285,11 +285,16 @@ function enable(config: ReviewOptions) {
     *{box-sizing:border-box} [hidden]{display:none!important}
     button{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px;cursor:pointer}
     button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
-    .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch;gap:8px}
+    .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch}
     .mark{display:inline-flex;align-items:center;gap:8px;background:var(--ptr-accent);color:var(--ptr-accent-ink);box-shadow:0 3px 20px #0004;border-color:var(--ptr-accent)}
     .mark:hover{filter:brightness(1.08)}
     .mark-dot{width:18px;height:18px;border-radius:6px;background:var(--ptr-accent-ink);opacity:.9;flex:none}
-    .menu{display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;min-width:230px}
+    .menu{position:absolute;left:0;min-width:max(230px,100%);display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;transform-origin:var(--ptr-menu-origin);transition:transform 160ms cubic-bezier(.2,.8,.3,1),opacity 120ms ease}
+    /* Grows out of the mark, away from the edge it sits on, so the trigger never moves and the
+       motion reads as the panel unfolding from the badge rather than appearing over the game. */
+    .menu[hidden]{display:flex!important;opacity:0;pointer-events:none;transform:translateY(var(--ptr-menu-shift)) scaleY(.96)}
+    .menu:not([hidden]){opacity:1;transform:none}
+    @media (prefers-reduced-motion:reduce){.menu{transition:none}.menu[hidden]{display:none!important}}
     .menu button,.menu a{width:100%;text-align:left;text-decoration:none;display:block}
     .menu a{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px}
     .menu a:hover{background:var(--ptr-surface)}
@@ -337,6 +342,10 @@ function enable(config: ReviewOptions) {
       menu.append(link);
     } catch { /* A malformed link is simply not offered. */ }
   }
+  // Anchored to the mark: opens downward from a top corner, upward from a bottom one.
+  menu.style.setProperty('--ptr-menu-origin', atTop ? 'top center' : 'bottom center');
+  menu.style.setProperty('--ptr-menu-shift', atTop ? '-8px' : '8px');
+  menu.style.setProperty(atTop ? 'top' : 'bottom', 'calc(100% + 8px)');
   launcher.append(atTop ? mark : menu, atTop ? menu : mark);
   panel = el('section'); panel.className = 'panel'; panel.hidden = true; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Screenshot feedback');
   panel.append(el('h2','Screenshot feedback'));
