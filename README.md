@@ -66,6 +66,9 @@ loader. Event names are normalized to lowercase and must contain 1-64 letters, n
 | `review.importDocument(text)` | Loads a `.prototir-review.json` file a tester sent you. |
 | `review.exportDocument()` | Returns the current review as JSON text. |
 | `review.attach(dataUrl)` | Supplies a screenshot captured by an engine and opens the panel. |
+| `review.capture()` | Takes a screenshot now and opens the composer. |
+| `review.compose(input)` | Opens the composer prefilled with text, context, or an image. |
+| `review.on(event, handler)` | Subscribes to `open`, `close`, `submit`, `error`. Returns an unsubscribe. |
 
 Storage keys may contain up to 128 characters. Each value is limited to 64 KiB of UTF-8 data. A
 prototype does not need—and should never contain—service credentials. Managed AI routing,
@@ -112,6 +115,37 @@ Prototir.review.enable({
   onOpenChange: (open) => setPaused(open)
 });
 ```
+
+### Where the button appears
+
+By default the SDK decides for you. Inside the Prototir player, Prototir draws **Feedback** in its
+own control bar beside Restart and Fullscreen, and the SDK stays out of the way. Anywhere else the
+SDK shows the Prototir mark, which opens a small menu: **Screenshot & comment**, **Comments**, and
+**Open on Prototir**. The menu unfolds from the mark, so the trigger never moves.
+
+Set `launcher: 'watermark'` to always show the mark, or `launcher: 'host'` to draw nothing and call
+`review.open()` from your own UI.
+
+The panel follows the player's light/dark preference. Pass `theme: 'light'` or `'dark'` to pin it.
+Prototir's own colours are bundled, so the panel looks right offline and inside a sandboxed frame
+with no network access.
+
+### Driving it from your game
+
+The one-line setup is enough for most prototypes. When you want the game itself to raise feedback:
+
+```js
+review.capture();                          // screenshot now, open the composer
+review.compose({                           // or hand the tester a report already written
+  text: 'Stuck here.',
+  context: `gate 3, seed ${seed}`
+});
+review.on('submit', () => resumeGame());   // also 'open', 'close', 'error'
+```
+
+`compose` accepts an `image` data URL when your game has a better frame than a live capture would
+give: the frame before a crash, or a rendered diff. The case this exists for is a game noticing its
+own failure and filing the report itself, which is feedback nobody would have written by hand.
 
 Without `capture`, the SDK grabs the first `<canvas>` on the next animation frame. Supply `capture`
 whenever you need an exact frame, a WebGL context created without `preserveDrawingBuffer`, or a page
