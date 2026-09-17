@@ -1,5 +1,6 @@
 import { resolveHostOrigin } from './host-origin';
 import { sanitizeTheme, themeCss } from './theme';
+import { awaitApproval, PairingCancelled, postComment, startPairing, storeToken, storedToken, type PairingStart } from './pairing';
 import { MAX_REVIEW_BYTES, parseReviewDocument, type ReviewDocument, type ReviewThread } from './review-document';
 
 export interface ReviewOptions {
@@ -24,6 +25,13 @@ export interface ReviewOptions {
   /** A developer-owned fullscreen container containing both canvas and overlay. */
   container?: HTMLElement;
   cloudUrl?: string;
+  /**
+   * Lets a build post to Prototir without being hosted there: a native game, or a page you host
+   * yourself. Both are required - the API to talk to, and the prototype it belongs to. Without
+   * them the panel still works and saves review files, which is the offline floor.
+   */
+  apiBase?: string;
+  slug?: string;
 }
 type FileHandle = { createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }> };
 let options: ReviewOptions | null = null;
@@ -56,6 +64,8 @@ let generation = 0;
 let busy = false;
 let dirty = false;
 let submission = { payload: '', id: '' };
+let pairingPanel!: HTMLElement;
+let pairingAbort: AbortController | null = null;
 let draftQueue = Promise.resolve();
 const requests = new Map<number, { resolve: (value: any) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
 const uid = () => crypto.randomUUID();
@@ -228,12 +238,91 @@ function render() {
     list.append(item);
   }
 }
+/**
+ * Signs the build in, showing the code and QR while the tester approves in a browser.
+ *
+ * The composed draft is deliberately untouched throughout: the tester pressed Post, got sent on an
+ * errand, and must come back to a finished action rather than an empty form.
+ */
+async function pairThenRetry(): Promise<string | null> {
+  const { apiBase, slug } = options!;
+  if (!apiBase || !slug) return null;
+
+  pairingAbort?.abort();
+  const abort = pairingAbort = new AbortController();
+  let start: PairingStart;
+  try {
+    start = await startPairing(apiBase, slug, navigator.userAgent.slice(0, 120));
+  } catch (error) {
+    message(error instanceof Error ? error.message : 'Could not start signing in.');
+    return null;
+  }
+
+  showPairing(start, () => abort.abort());
+  // A build that can reach a browser opens it directly on a link that already carries the code,
+  // so the tester lands on one Approve button instead of typing anything.
+  try { window.open(start.verificationUrl, '_blank', 'noopener,noreferrer'); } catch { /* headset, console */ }
+
+  try {
+    const token = await awaitApproval(apiBase, slug, start, abort.signal);
+    storeToken(slug, token);
+    return token;
+  } catch (error) {
+    if (!(error instanceof PairingCancelled))
+      message(error instanceof Error ? error.message : 'Signing in failed.');
+    return null;
+  } finally {
+    if (pairingAbort === abort) pairingAbort = null;
+    pairingPanel.hidden = true;
+  }
+}
+
+function showPairing(start: PairingStart, cancel: () => void) {
+  pairingPanel.replaceChildren();
+  pairingPanel.hidden = false;
+  pairingPanel.append(el('strong', 'Sign in to post this'));
+  pairingPanel.append(el('p', 'Approve this build in your browser, then come back. Your screenshot and comment are kept.'));
+  if (start.qrSvgDataUrl) {
+    const qr = el('img');
+    qr.src = start.qrSvgDataUrl;
+    qr.alt = 'Scan to approve on your phone';
+    qr.className = 'qr';
+    pairingPanel.append(qr);
+  }
+  const code = el('p', start.code); code.className = 'code';
+  pairingPanel.append(el('small', 'Or enter this code at ' + start.verificationUrl.split('?')[0]), code);
+  pairingPanel.append(button('Cancel', cancel));
+}
+
 async function save() {
   if (busy) return;
   if (!image || !input_.value.trim()) throw new Error('Add a screenshot and a comment first.');
   busy = true; saveButton.disabled = true;
   try {
-    if (online) {
+    if (!online && options!.apiBase && options!.slug) {
+      const payload = { text: input_.value.trim(), screenshot: { image, x, y, context: contextInput.value } };
+      const serialized = JSON.stringify(payload);
+      if (submission.payload !== serialized) submission = { payload: serialized, id: uid() };
+      const body = { ...payload, clientId: submission.id };
+
+      let token = storedToken(options!.slug!);
+      if (!token) token = await pairThenRetry();
+      if (!token) { message('Not signed in. You can still save a review file.'); return; }
+
+      let result = await postComment(options!.apiBase!, options!.slug!, token, body);
+      if (!result.ok && result.revoked) {
+        // The pairing was revoked or expired. Ask once more rather than telling the tester to
+        // work out what happened, then post the same held draft.
+        storeToken(options!.slug!, null);
+        const fresh = await pairThenRetry();
+        if (fresh) result = await postComment(options!.apiBase!, options!.slug!, fresh, body);
+      }
+      if (!result.ok) { message(result.error ?? 'Your comment was not posted.'); return; }
+
+      submission = { payload: '', id: '' };
+      message('Posted to the prototype’s comments.');
+      emit('submit', { online: true });
+    } else if (online) {
       const payload = { text: input_.value.trim(), screenshot: { image, x, y, context: contextInput.value } };
       const serialized = JSON.stringify(payload);
       if (submission.payload !== serialized) submission = { payload: serialized, id: uid() };
@@ -307,6 +396,9 @@ function enable(config: ReviewOptions) {
     .pin{position:absolute;transform:translate(-50%,-50%);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;background:var(--ptr-accent);color:var(--ptr-accent-ink);border:2px solid var(--ptr-background);pointer-events:none}
     article{margin-top:16px;padding-top:16px;border-top:1px solid var(--ptr-line)}article button{margin:6px 6px 0 0}
     [role=status]{min-height:24px;color:var(--ptr-muted)}
+    .pairing{margin-top:14px;padding:14px;border:1px solid var(--ptr-line);border-radius:12px;background:var(--ptr-surface);display:grid;gap:8px;justify-items:start}
+    .pairing .qr{width:168px;height:168px;background:#fff;border-radius:8px;padding:6px}
+    .pairing .code{font:600 22px/1 ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.18em;margin:0}
     @media(max-width:560px){.panel{inset:8px;width:calc(100% - 16px);max-height:calc(100% - 16px);padding:14px}}
   `;
   css.textContent = themeCss(config.theme ?? 'auto') + baseCss;
@@ -393,6 +485,8 @@ function enable(config: ReviewOptions) {
   input_ = el('textarea'); input_.maxLength = 2000;
   const inputLabel = el('label','Comment'); inputLabel.append(input_); panel.append(inputLabel);
   saveButton = button('Save screenshot comment', save); panel.append(saveButton);
+  pairingPanel = el('div'); pairingPanel.className = 'pairing'; pairingPanel.hidden = true;
+  pairingPanel.setAttribute('role', 'status'); panel.append(pairingPanel);
   status = el('p'); status.setAttribute('role','status'); panel.append(status);
   list = el('div'); panel.append(list); root.append(launcher,panel);
   // Do not let game keyboard handlers consume review text.

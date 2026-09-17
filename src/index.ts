@@ -2,6 +2,7 @@ import { review } from './review';
 import { resolveHostOrigin } from './host-origin';
 export * from './review-document';
 export * from './theme';
+export * from './pairing';
 export type { ReviewOptions } from './review';
 import {
 	PROTOTIR_SOURCE,

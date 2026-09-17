@@ -31,7 +31,7 @@
 		"build": "tsup",
 		"build:cdn": "npm run build && node tools/build-cdn.mjs",
 		"dev": "tsup --watch",
-		"test": "npm run build && node tools/test.mjs && node tools/test-review.mjs && node tools/check-theme.mjs && node tools/check-review-sync.mjs",
+		"test": "npm run build && node tools/test.mjs && node tools/test-review.mjs && node tools/test-pairing.mjs && node tools/check-theme.mjs && node tools/check-review-sync.mjs",
 		"sync:review": "npm run build && node tools/sync-review-runtime.mjs",
 		"typecheck": "tsc --noEmit",
 		"check": "npm run typecheck && npm test"
