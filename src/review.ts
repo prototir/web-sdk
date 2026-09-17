@@ -9,6 +9,15 @@ export interface ReviewOptions {
   capture?: () => Promise<Blob | string>;
   context?: () => string;
   onOpenChange?: (open: boolean) => void;
+  /**
+   * Who draws the way in.
+   * - `auto` (default): the Prototir player draws it when hosted there, otherwise the SDK does.
+   * - `watermark`: always draw the Prototir mark, which opens a small menu.
+   * - `host`: never draw one; the surrounding app calls `review.open()`.
+   */
+  launcher?: 'auto' | 'watermark' | 'host';
+  /** Where "Open on Prototir" points from a self-hosted build. */
+  prototypeUrl?: string;
   /** A developer-owned fullscreen container containing both canvas and overlay. */
   container?: HTMLElement;
   cloudUrl?: string;
@@ -19,6 +28,8 @@ let doc: ReviewDocument;
 let root: ShadowRoot;
 let host: HTMLElement;
 let panel: HTMLElement;
+let launcher: HTMLElement;
+let menu: HTMLElement;
 let list: HTMLElement;
 let status: HTMLElement;
 let preview: HTMLImageElement;
@@ -107,6 +118,24 @@ function show(open: boolean) {
     (panel.querySelector('button') as HTMLButtonElement)?.focus();
   } else options?.onOpenChange?.(false);
 }
+function setMenu(open: boolean) {
+  if (!menu) return;
+  menu.hidden = !open;
+  if (open) (menu.querySelector('button, a') as HTMLElement | null)?.focus();
+}
+
+/**
+ * Decides whether the SDK draws its own way in. `hostClaims` is true when the Prototir player
+ * has said it renders the control itself, which it does so the entry point sits with Restart
+ * and Fullscreen rather than floating separately over the same view.
+ */
+function applyLauncher(mode: 'auto' | 'watermark' | 'host', hostClaims: boolean) {
+  if (!launcher) return;
+  const hidden = mode === 'host' || (mode === 'auto' && hostClaims);
+  launcher.hidden = hidden;
+  if (hidden) setMenu(false);
+}
+
 function showPin() {
   pin.style.left = `${x * 100}%`; pin.style.top = `${y * 100}%`;
   pin.hidden = !image;
@@ -232,7 +261,14 @@ function enable(config: ReviewOptions) {
     *{box-sizing:border-box} [hidden]{display:none!important}
     button{font:inherit;border:1px solid #c3cdd2;background:#fff;color:#19252d;border-radius:8px;padding:9px 12px;cursor:pointer}
     button:hover{background:#edf5f4}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #0f8b79;outline-offset:2px}
-    .launcher{position:absolute;pointer-events:auto;background:#123f3b;color:white;box-shadow:0 3px 20px #0004}
+    .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch;gap:8px}
+    .mark{display:inline-flex;align-items:center;gap:8px;background:#123f3b;color:white;box-shadow:0 3px 20px #0004;border-color:#123f3b}
+    .mark:hover{background:#1a5651}
+    .mark-dot{width:18px;height:18px;border-radius:6px;background:#3ddc97;flex:none}
+    .menu{display:flex;flex-direction:column;gap:6px;background:#f9fbfb;border:1px solid #b9c7cc;border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;min-width:230px}
+    .menu button,.menu a{width:100%;text-align:left;text-decoration:none;display:block}
+    .menu a{font:inherit;border:1px solid #c3cdd2;background:#fff;color:#19252d;border-radius:8px;padding:9px 12px}
+    .menu a:hover{background:#edf5f4}
     .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:#f9fbfb;border:1px solid #b9c7cc;border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
     h2{margin:0;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:#53646d}
@@ -245,11 +281,38 @@ function enable(config: ReviewOptions) {
     @media(max-width:560px){.panel{inset:8px;width:calc(100% - 16px);max-height:calc(100% - 16px);padding:14px}}
   `;
   root.append(css);
-  const launch = button('Feedback', () => show(!opened)); launch.className = 'launcher';
+  // The way in. On Prototir the player draws its own control beside Restart and Fullscreen, so
+  // a second floating button there would read as a bug; everywhere else the SDK draws the
+  // Prototir mark, and that mark doubles as the menu (it is also the attribution badge).
+  launcher = el('div'); launcher.className = 'launcher';
   const corner = ['bottom-left','bottom-right','top-left','top-right'].includes(config.corner ?? '') ? config.corner! : 'bottom-left';
   const offset = Math.max(8, Math.min(200, config.offset ?? 16));
-  launch.style.setProperty(corner.startsWith('top') ? 'top' : 'bottom', `max(${offset}px, env(safe-area-inset-${corner.startsWith('top') ? 'top' : 'bottom'}))`);
-  launch.style.setProperty(corner.endsWith('left') ? 'left' : 'right', offset + 'px');
+  const atTop = corner.startsWith('top');
+  launcher.style.setProperty(atTop ? 'top' : 'bottom', `max(${offset}px, env(safe-area-inset-${atTop ? 'top' : 'bottom'}))`);
+  launcher.style.setProperty(corner.endsWith('left') ? 'left' : 'right', offset + 'px');
+
+  // The menu grows away from the mark so the trigger stays visible and the opposite edge, where
+  // games put their HUD, stays clear.
+  menu = el('div'); menu.className = 'menu'; menu.hidden = true;
+  menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', 'Prototir feedback');
+  const mark = button('Feedback', () => setMenu(menu.hidden));
+  mark.className = 'mark'; mark.setAttribute('aria-haspopup', 'menu');
+  const dot = el('span'); dot.className = 'mark-dot'; dot.setAttribute('aria-hidden', 'true');
+  mark.prepend(dot);
+  menu.append(
+    button('Screenshot & comment', () => { setMenu(false); show(true); void capture().catch(error => message(String(error))); }),
+    button('Comments', async () => { setMenu(false); if (online) await send('browse'); else { show(true); list.scrollIntoView({ block: 'start' }); } })
+  );
+  if (config.prototypeUrl) {
+    const link = el('a', 'Open on Prototir') as HTMLAnchorElement;
+    try {
+      const url = new URL(config.prototypeUrl);
+      if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new Error('unsupported');
+      link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      menu.append(link);
+    } catch { /* A malformed link is simply not offered. */ }
+  }
+  launcher.append(atTop ? mark : menu, atTop ? menu : mark);
   panel = el('section'); panel.className = 'panel'; panel.hidden = true; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Screenshot feedback');
   panel.append(el('h2','Screenshot feedback'));
   const bar = el('div'); bar.className = 'bar';
@@ -297,11 +360,11 @@ function enable(config: ReviewOptions) {
   const inputLabel = el('label','Comment'); inputLabel.append(input); panel.append(inputLabel);
   saveButton = button('Save screenshot comment', save); panel.append(saveButton);
   status = el('p'); status.setAttribute('role','status'); panel.append(status);
-  list = el('div'); panel.append(list); root.append(launch,panel);
+  list = el('div'); panel.append(list); root.append(launcher,panel);
   // Do not let game keyboard handlers consume review text.
   for (const type of ['keydown','keyup','keypress','pointerdown','pointerup','click']) root.addEventListener(type,event => event.stopPropagation());
   panel.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { event.preventDefault(); show(false); launch.focus(); }
+    if (event.key === 'Escape') { event.preventDefault(); show(false); mark.focus(); }
     if (event.key === 'Tab') {
       const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not([hidden]),textarea,[tabindex="0"]')).filter(node => !node.hidden);
       const first = focusable[0], last = focusable[focusable.length - 1];
@@ -315,9 +378,14 @@ function enable(config: ReviewOptions) {
     hostOrigin = resolveHostOrigin('');
   } catch { hostOrigin = ''; }
   window.addEventListener('message',receive);
-  if (hostOrigin && window.parent !== window) void send('hello').then(() => {
+  // Off Prototir the build's own call is the last word. On Prototir the dashboard wins, so a
+  // creator can switch feedback off live without shipping a new build.
+  applyLauncher(config.launcher ?? 'auto', false);
+  if (hostOrigin && window.parent !== window) void send('hello').then((value: { mode?: string; launcher?: string } | undefined) => {
     if (token !== generation) return;
+    if (value?.mode === 'disabled') { disable(); return; }
     online = true; saveButton.textContent = 'Post to comments';
+    applyLauncher(config.launcher ?? 'auto', value?.launcher !== 'sdk');
     message('Screenshot comments are visible to everyone who can access this prototype.');
   }).catch(() => message('Local review mode. Save a file to share feedback.'));
 }
