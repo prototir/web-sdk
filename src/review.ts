@@ -1,4 +1,4 @@
-import { resolveHostOrigin } from './host-origin';
+import { resolveHostOrigin, resolveHostProject } from './host-origin';
 import { sanitizeTheme, themeCss } from './theme';
 import { awaitApproval, PairingCancelled, postComment, startPairing, storeToken, storedToken, type PairingStart } from './pairing';
 import { MAX_REVIEW_BYTES, parseReviewDocument, type ReviewDocument, type ReviewThread } from './review-document';
@@ -535,6 +535,36 @@ function disable() {
   requests.clear(); host?.remove(); options = null; online = false; opened = false; image = ''; editing = null; fileHandle = null; dirty = false; busy = false;
 }
 export type ReviewEvent = 'open' | 'close' | 'submit' | 'error';
+
+/**
+ * Turns feedback on without the creator writing anything, when the host has told the frame which
+ * prototype it is showing.
+ *
+ * Adding the SDK used to give you nothing here: `enable()` had to be called with a project id,
+ * and a creator who never called it had no feedback entry point at all and no sign that one was
+ * missing. Hosted on Prototir the id is knowable, so the sensible default is on.
+ *
+ * Deliberately silent and deliberately last: an explicit `enable()` from the build replaces this
+ * wholesale, because `enable()` disables whatever came before it.
+ */
+function enableFromHost() {
+  if (options) return; // The build already asked for something specific.
+  const project = resolveHostProject();
+  if (!project) return; // Self-hosted, or a host that does not say. Opt-in as before.
+  try {
+    enable({ project });
+  } catch {
+    // Never let a default get in the way of the game starting.
+  }
+}
+
+if (typeof window !== 'undefined') {
+  // After the current task, so a build calling enable() in its own top-level code wins without
+  // paying for this one being built and torn down first. A resolved promise rather than
+  // queueMicrotask: this SDK runs inside engine webviews as well as browsers, and the narrower
+  // the assumptions about the host environment the better.
+  void Promise.resolve().then(enableFromHost);
+}
 
 export const review = {
   enable, disable,

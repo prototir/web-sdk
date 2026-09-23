@@ -1,6 +1,9 @@
 import { review } from './review';
 import { resolveHostOrigin } from './host-origin';
 export * from './review-document';
+// Exported so an engine adapter can read the same value the browser SDK does, and so the rule
+// for what counts as a usable slug lives in one place rather than being restated per engine.
+export { resolveHostProject } from './host-origin';
 export * from './theme';
 export * from './pairing';
 export type { ReviewOptions } from './review';

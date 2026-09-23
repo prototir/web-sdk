@@ -26,3 +26,29 @@ export function resolveHostOrigin<T extends string>(fallback: T): string | T {
 	}
 	return fallback;
 }
+
+/**
+ * The prototype this frame is showing, when the host said so.
+ *
+ * Travels the same two ways as `prototir_origin`, for the same reason: some engine exports
+ * rewrite or strip the query string, so the hash is accepted too.
+ *
+ * This exists so a creator who adds the SDK gets feedback without configuring anything. The
+ * prototype's identity is the host's to know, not the build's: the slug does not exist until the
+ * prototype does, which is the same reason it is injected into downloadable builds at upload.
+ */
+export function resolveHostProject(): string | null {
+	try {
+		const url = new URL(window.location.href);
+		const candidate =
+			url.searchParams.get('prototir_slug') ??
+			new URLSearchParams(url.hash.replace(/^#/, '')).get('prototir_slug');
+		if (!candidate) return null;
+		// Same bound `enable()` enforces, applied here so a hostile or broken host cannot make the
+		// SDK throw during its own start-up.
+		const slug = candidate.trim();
+		return slug.length > 0 && slug.length <= 120 ? slug : null;
+	} catch {
+		return null;
+	}
+}

@@ -85,4 +85,57 @@ for (const [href, expected] of [
   assert.equal(sent.at(-1).origin, expected, `origin for ${href}`);
 }
 
+// Feedback now switches itself on when the host names the prototype, so the SDK reaches for the
+// DOM during start-up where it never used to. A build embedded somewhere without a usable
+// document must still start: a default that can stop a game from running is worse than no
+// default at all.
+//
+// This proves the SDK loads and the game can still report. It does NOT prove the try/catch
+// around the default, because a promise rejecting inside a vm context never reaches this
+// process: removing that catch leaves this passing. The resolver below is the part that is
+// genuinely covered.
+{
+  const started = [];
+  const bare = {
+    parent: { postMessage: (message) => started.push(message) },
+    location: { href: 'https://p.prttr.com/?prototir_origin=https%3A%2F%2Fprototir.com&prototir_slug=rims-viewer' },
+    addEventListener: () => {}
+  };
+  const sandbox = vm.createContext({
+    window: bare,
+    URL,
+    URLSearchParams,
+    TextEncoder,
+    setTimeout,
+    clearTimeout,
+    console
+  });
+  vm.runInContext(source, sandbox);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.ok(bare.Prototir, 'the SDK must load even where feedback cannot draw itself');
+  bare.Prototir.ready();
+  assert.equal(started.at(-1)?.type, 'ready', 'the game must still be able to report');
+}
+
+// What the host is allowed to say, and what the SDK refuses to believe. A slug arrives in a URL
+// anyone can edit, so the bound that `enable()` enforces is applied before it gets there.
+{
+  const { resolveHostProject } = await import('../dist/prototir.mjs');
+  // The ESM build reads the real global, not the vm sandbox's stand-in.
+  const previous = globalThis.window;
+  for (const [href, expected] of [
+    ['https://p.prttr.com/?prototir_slug=rims-viewer', 'rims-viewer'],
+    ['https://p.prttr.com/#prototir_slug=rims-viewer', 'rims-viewer'],
+    ['https://p.prttr.com/?prototir_slug=%20%20', null],
+    ['https://p.prttr.com/', null],
+    [`https://p.prttr.com/?prototir_slug=${'x'.repeat(121)}`, null],
+    [`https://p.prttr.com/?prototir_slug=${'x'.repeat(120)}`, 'x'.repeat(120)]
+  ]) {
+    globalThis.window = { location: { href } };
+    assert.equal(resolveHostProject(), expected, `slug for ${href}`);
+  }
+  globalThis.window = previous;
+}
+
 console.log('Web SDK protocol and validation checks passed.');
