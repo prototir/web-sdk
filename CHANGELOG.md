@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 - 2026-09-27
+
+- Moved the screenshot feedback panel's Close control to a cross at its top-right edge, with an
+  accessible name. The panel toolbar now starts with Capture view.
+
 ## 0.2.2 - 2026-09-27
 
 - Fixed feedback enabling itself before there was a document to draw into. The SDK is normally

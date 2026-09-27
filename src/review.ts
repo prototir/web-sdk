@@ -388,8 +388,9 @@ function enable(config: ReviewOptions) {
     .menu a{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px}
     .menu a:hover{background:var(--ptr-surface)}
     .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
+    .panel-close{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:36px;height:36px;padding:0;font-size:24px;line-height:1}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
-    h2{margin:0;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:var(--ptr-muted)}
+    h2{margin:0;padding-right:36px;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:var(--ptr-muted)}
     textarea,input{font:inherit;padding:10px;border:1px solid var(--ptr-line);border-radius:7px;width:100%;background:var(--ptr-surface-raised);color:var(--ptr-ink)}
     textarea{min-height:80px;resize:vertical}label{display:block;margin-top:10px}
     .shot{position:relative;display:table;max-width:100%;margin:12px 0}.shot img{display:block;max-width:100%;max-height:420px;width:auto;height:auto}
@@ -440,9 +441,11 @@ function enable(config: ReviewOptions) {
   menu.style.setProperty(atTop ? 'top' : 'bottom', 'calc(100% + 8px)');
   launcher.append(atTop ? mark : menu, atTop ? menu : mark);
   panel = el('section'); panel.className = 'panel'; panel.hidden = true; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Screenshot feedback');
-  panel.append(el('h2','Screenshot feedback'));
+  const close = button('×', () => show(false)); close.className = 'panel-close';
+  close.setAttribute('aria-label', 'Close feedback'); close.title = 'Close feedback';
+  panel.append(close, el('h2','Screenshot feedback'));
   const bar = el('div'); bar.className = 'bar';
-  bar.append(button('Close', () => show(false)), button('Capture view', capture));
+  bar.append(button('Capture view', capture));
   const file = el('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp'; file.hidden = true;
   file.onchange = async () => {
     try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); setImage(await compress(selected)); } }
