@@ -388,7 +388,8 @@ function enable(config: ReviewOptions) {
     .menu a{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px}
     .menu a:hover{background:var(--ptr-surface)}
     .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
-    .panel-close{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:36px;height:36px;padding:0;font-size:24px;line-height:1}
+    .panel-close{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:36px;height:36px;padding:0}
+    .panel-close svg{display:block;width:18px;height:18px}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
     h2{margin:0;padding-right:36px;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:var(--ptr-muted)}
     textarea,input{font:inherit;padding:10px;border:1px solid var(--ptr-line);border-radius:7px;width:100%;background:var(--ptr-surface-raised);color:var(--ptr-ink)}
@@ -441,8 +442,18 @@ function enable(config: ReviewOptions) {
   menu.style.setProperty(atTop ? 'top' : 'bottom', 'calc(100% + 8px)');
   launcher.append(atTop ? mark : menu, atTop ? menu : mark);
   panel = el('section'); panel.className = 'panel'; panel.hidden = true; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Screenshot feedback');
-  const close = button('×', () => show(false)); close.className = 'panel-close';
+  const close = button('', () => show(false)); close.className = 'panel-close';
   close.setAttribute('aria-label', 'Close feedback'); close.title = 'Close feedback';
+  const closeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  closeIcon.setAttribute('viewBox', '0 0 24 24'); closeIcon.setAttribute('fill', 'none');
+  closeIcon.setAttribute('stroke', 'currentColor'); closeIcon.setAttribute('stroke-width', '2');
+  closeIcon.setAttribute('stroke-linecap', 'round'); closeIcon.setAttribute('stroke-linejoin', 'round');
+  closeIcon.setAttribute('aria-hidden', 'true');
+  for (const pathData of ['M18 6 6 18', 'm6 6 12 12']) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', pathData); closeIcon.append(path);
+  }
+  close.append(closeIcon);
   panel.append(close, el('h2','Screenshot feedback'));
   const bar = el('div'); bar.className = 'bar';
   bar.append(button('Capture view', capture));

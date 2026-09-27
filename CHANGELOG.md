@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.4 - 2026-09-27
+
+- Replaced the feedback panel's font-rendered close glyph with a centered SVG X. The text glyph
+  appeared off-center inside its button even though the button used grid centering.
+
 ## 0.2.3 - 2026-09-27
 
 - Moved the screenshot feedback panel's Close control to a cross at its top-right edge, with an
