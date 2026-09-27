@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.6 - 2026-09-27
+
+- Kept Post visible in the short hosted watch-page player by anchoring it to the bottom of the
+  scrolling screenshot composer. A live Backpack Viewer check caught it partly below the panel
+  after the 0.2.5 menu release; the larger test frame had hidden the problem.
+
 ## 0.2.5 - 2026-09-27
 
 - Split screenshot feedback into icon-led tools. The SDK badge opens Screenshot and Review files

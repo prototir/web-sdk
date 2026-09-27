@@ -415,6 +415,7 @@ function enable(config: ReviewOptions) {
     .menu small{overflow-wrap:anywhere}
     .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
     .panel.online{width:min(640px,calc(100% - 32px))}
+    .panel.online .review-submit{position:sticky;bottom:0;z-index:1;margin-top:8px;box-shadow:0 8px 0 8px var(--ptr-background)}
     .panel-close{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:36px;height:36px;padding:0}
     .panel-close svg{display:block;width:18px;height:18px}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
@@ -541,7 +542,7 @@ function enable(config: ReviewOptions) {
   contextDetails.append(contextSummary, contextLabel); panel.append(contextDetails);
   input_ = el('textarea'); input_.maxLength = 2000;
   const inputLabel = el('label','Comment'); inputLabel.append(input_); panel.append(inputLabel);
-  saveButton = button('Save screenshot comment', save); panel.append(saveButton);
+  saveButton = button('Save screenshot comment', save); saveButton.className = 'review-submit'; panel.append(saveButton);
   pairingPanel = el('div'); pairingPanel.className = 'pairing'; pairingPanel.hidden = true;
   pairingPanel.setAttribute('role', 'status'); panel.append(pairingPanel);
   status = el('p'); status.setAttribute('role','status'); panel.append(status);
