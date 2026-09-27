@@ -44,6 +44,7 @@ let style: HTMLStyleElement;
 let baseCss = '';
 const listeners = new Map<string, Set<(detail: any) => void>>();
 let menu: HTMLElement;
+let mark: HTMLButtonElement;
 let list: HTMLElement;
 let status: HTMLElement;
 let preview: HTMLImageElement;
@@ -52,6 +53,8 @@ let input_: HTMLTextAreaElement;
 let author: HTMLInputElement;
 let contextInput: HTMLInputElement;
 let saveButton: HTMLButtonElement;
+let fallbackAttach: HTMLButtonElement;
+let selectTool: (tool: 'screenshot' | 'files') => void = () => {};
 let image = '';
 let x = .5, y = .5;
 let editing: string | null = null;
@@ -78,6 +81,18 @@ const button = (text: string, action: () => void | Promise<void>) => {
   node.onclick = () => void Promise.resolve().then(action).catch(error => message(error instanceof Error ? error.message : String(error)));
   return node;
 };
+const toolIcon = (node: HTMLElement, paths: string[]) => {
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  for (const [name, value] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) icon.setAttribute(name, value);
+  for (const data of paths) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', data); icon.append(path);
+  }
+  node.prepend(icon);
+};
+const cameraIcon = ['M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z', 'M12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6'];
+const commentsIcon = ['M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z'];
+const filesIcon = ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'];
 function send(op: string, payload: unknown = {}): Promise<any> {
   if (!hostOrigin || window.parent === window) return Promise.reject(new Error('No Prototir host.'));
   const id = ++serial;
@@ -95,6 +110,13 @@ function receive(event: MessageEvent) {
   // its chrome rather than the SDK floating a second button over the same view.
   if (m.type === 'review:command') {
     if (m.op === 'open' && options) show(true);
+    else if (m.op === 'capture' && options) {
+      selectTool('screenshot'); show(true);
+      void capture().then(() => { fallbackAttach.hidden = true; }).catch(error => {
+        message(error instanceof Error ? error.message : String(error));
+        fallbackAttach.hidden = false;
+      });
+    }
     else if (m.op === 'close' && options) show(false);
     return;
   }
@@ -153,6 +175,7 @@ function emit(event: string, detail?: unknown) {
 function setMenu(open: boolean) {
   if (!menu) return;
   menu.hidden = !open;
+  mark?.setAttribute('aria-expanded', String(open));
   if (open) (menu.querySelector('button, a') as HTMLElement | null)?.focus();
 }
 
@@ -208,6 +231,7 @@ async function capture() {
   const compressed = await compress(source);
   if (token !== generation || !options) return;
   setImage(compressed);
+  fallbackAttach.hidden = true;
   contextInput.value = (options.context?.() ?? '').slice(0, 500);
   message('Check the screenshot, click to place its pin, and write your comment.');
 }
@@ -337,7 +361,7 @@ async function save() {
         context: contextInput.value, resolved: old?.resolved ?? false, replies: old?.replies ?? [] };
       const next = { ...doc, threads: old ? doc.threads.map(t => t.id === old.id ? thread : t) : [...doc.threads, thread] };
       doc = parseReviewDocument(JSON.stringify(next)); changed(); render();
-      message('Saved in this review. Export the file to share it.');
+      message('Saved in this review. Open Review files from Feedback to export it.');
       emit('submit', { online: false });
     }
     input_.value = ''; editing = null; setImage('');
@@ -376,25 +400,30 @@ function enable(config: ReviewOptions) {
     button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
     .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch}
     .mark{display:inline-flex;align-items:center;gap:8px;background:var(--ptr-accent);color:var(--ptr-accent-ink);box-shadow:0 3px 20px #0004;border-color:var(--ptr-accent)}
-    .mark:hover{filter:brightness(1.08)}
+    .mark:hover{background:var(--ptr-accent);filter:brightness(1.08)}
     .mark-dot{width:18px;height:18px;border-radius:6px;background:var(--ptr-accent-ink);opacity:.9;flex:none}
-    .menu{position:absolute;left:0;min-width:max(230px,100%);display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;transform-origin:var(--ptr-menu-origin);transition:transform 160ms cubic-bezier(.2,.8,.3,1),opacity 120ms ease}
+    .menu{position:absolute;width:min(230px,calc(100vw - 16px));display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;transform-origin:var(--ptr-menu-origin);transition:transform 160ms cubic-bezier(.2,.8,.3,1),opacity 120ms ease}
     /* Grows out of the mark, away from the edge it sits on, so the trigger never moves and the
        motion reads as the panel unfolding from the badge rather than appearing over the game. */
     .menu[hidden]{display:flex!important;opacity:0;pointer-events:none;transform:translateY(var(--ptr-menu-shift)) scaleY(.96)}
     .menu:not([hidden]){opacity:1;transform:none}
     @media (prefers-reduced-motion:reduce){.menu{transition:none}.menu[hidden]{display:none!important}}
-    .menu button,.menu a{width:100%;text-align:left;text-decoration:none;display:block}
+    .menu button,.menu a{width:100%;text-align:left;text-decoration:none;display:flex;align-items:center;gap:10px}
+    .menu svg{display:block;width:18px;height:18px;flex:none}
     .menu a{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px}
     .menu a:hover{background:var(--ptr-surface)}
+    .menu small{overflow-wrap:anywhere}
     .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
+    .panel.online{width:min(640px,calc(100% - 32px))}
     .panel-close{position:absolute;top:8px;right:8px;display:grid;place-items:center;width:36px;height:36px;padding:0}
     .panel-close svg{display:block;width:18px;height:18px}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+    details{margin:12px 0}summary{cursor:pointer;color:var(--ptr-muted)}
     h2{margin:0;padding-right:36px;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:var(--ptr-muted)}
     textarea,input{font:inherit;padding:10px;border:1px solid var(--ptr-line);border-radius:7px;width:100%;background:var(--ptr-surface-raised);color:var(--ptr-ink)}
     textarea{min-height:80px;resize:vertical}label{display:block;margin-top:10px}
     .shot{position:relative;display:table;max-width:100%;margin:12px 0}.shot img{display:block;max-width:100%;max-height:420px;width:auto;height:auto}
+    .panel.online .shot{margin:12px auto}.panel.online .shot img{max-height:min(38dvh,280px)}
     .pin{position:absolute;transform:translate(-50%,-50%);border-radius:50%;width:26px;height:26px;display:grid;place-items:center;background:var(--ptr-accent);color:var(--ptr-accent-ink);border:2px solid var(--ptr-background);pointer-events:none}
     article{margin-top:16px;padding-top:16px;border-top:1px solid var(--ptr-line)}article button{margin:6px 6px 0 0}
     [role=status]{min-height:24px;color:var(--ptr-muted)}
@@ -419,20 +448,31 @@ function enable(config: ReviewOptions) {
   // games put their HUD, stays clear.
   menu = el('div'); menu.className = 'menu'; menu.hidden = true;
   menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', 'Prototir feedback');
-  const mark = button('Feedback', () => setMenu(menu.hidden));
+  mark = button('Feedback', () => setMenu(menu.hidden));
   mark.className = 'mark'; mark.setAttribute('aria-haspopup', 'menu');
+  mark.setAttribute('aria-expanded', 'false');
   const dot = el('span'); dot.className = 'mark-dot'; dot.setAttribute('aria-hidden', 'true');
   mark.prepend(dot);
-  menu.append(
-    button('Screenshot & comment', () => { setMenu(false); show(true); void capture().catch(error => message(String(error))); }),
-    button('Comments', async () => { setMenu(false); if (online) await send('browse'); else { show(true); list.scrollIntoView({ block: 'start' }); } })
-  );
+  const screenshotTool = button('Screenshot', () => { setMenu(false); selectTool('screenshot'); show(true); void capture().catch(error => { message(String(error)); fallbackAttach.hidden = false; }); });
+  const menuStatus = el('small'); menuStatus.hidden = true; menuStatus.setAttribute('role','status');
+  const commentsTool = button('Review files', async () => {
+    setMenu(false);
+    if (online) {
+      try { await send('browse'); }
+      catch (error) { menuStatus.textContent = error instanceof Error ? error.message : String(error); menuStatus.hidden = false; setMenu(true); }
+    } else { selectTool('files'); show(true); }
+  });
+  screenshotTool.setAttribute('role','menuitem'); commentsTool.setAttribute('role','menuitem');
+  toolIcon(screenshotTool, cameraIcon); toolIcon(commentsTool, filesIcon);
+  menu.append(screenshotTool, commentsTool, menuStatus);
+  menu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); setMenu(false); mark.focus(); } });
   if (config.prototypeUrl) {
     const link = el('a', 'Open on Prototir') as HTMLAnchorElement;
     try {
       const url = new URL(config.prototypeUrl);
       if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new Error('unsupported');
       link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.setAttribute('role','menuitem');
       menu.append(link);
     } catch { /* A malformed link is simply not offered. */ }
   }
@@ -440,6 +480,7 @@ function enable(config: ReviewOptions) {
   menu.style.setProperty('--ptr-menu-origin', atTop ? 'top center' : 'bottom center');
   menu.style.setProperty('--ptr-menu-shift', atTop ? '-8px' : '8px');
   menu.style.setProperty(atTop ? 'top' : 'bottom', 'calc(100% + 8px)');
+  menu.style.setProperty(corner.endsWith('left') ? 'left' : 'right', '0');
   launcher.append(atTop ? mark : menu, atTop ? menu : mark);
   panel = el('section'); panel.className = 'panel'; panel.hidden = true; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Screenshot feedback');
   const close = button('', () => show(false)); close.className = 'panel-close';
@@ -454,29 +495,29 @@ function enable(config: ReviewOptions) {
     path.setAttribute('d', pathData); closeIcon.append(path);
   }
   close.append(closeIcon);
-  panel.append(close, el('h2','Screenshot feedback'));
+  const panelTitle = el('h2','Screenshot feedback');
+  panel.append(close, panelTitle);
   const bar = el('div'); bar.className = 'bar';
-  bar.append(button('Capture view', capture));
   const file = el('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp'; file.hidden = true;
   file.onchange = async () => {
-    try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); setImage(await compress(selected)); } }
+    try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); setImage(await compress(selected)); fallbackAttach.hidden = true; } }
     catch (error) { message(String(error)); } finally { file.value = ''; }
   };
-  bar.append(button('Attach screenshot', () => file.click()), file);
+  panel.append(file);
   const load = el('input'); load.type = 'file'; load.accept = '.json'; load.hidden = true;
   load.onchange = async () => {
     try { const selected = load.files?.[0]; if (selected) { if (selected.size > MAX_REVIEW_BYTES) throw new Error('Review exceeds 8 MiB.'); importDocument(await selected.text()); fileHandle = null; } }
     catch(error) { message(String(error)); } finally { load.value = ''; }
   };
   bar.append(button('Import review', () => load.click()), load, button('Save review file', saveFile));
-  const browse = button('Browse comments', async () => { if (online) await send('browse'); else list.scrollIntoView({ block:'start' }); });
-  bar.append(browse);
   if (config.cloudUrl) bar.append(button('Team cloud', () => {
     const url = new URL(config.cloudUrl!);
     if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new Error('Cloud URL must use HTTPS.');
     window.open(url.href, '_blank', 'noopener,noreferrer');
   }));
-  panel.append(bar);
+  fallbackAttach = button('Attach a screenshot instead', () => file.click());
+  fallbackAttach.hidden = true;
+  panel.append(bar, fallbackAttach);
   const frame = el('div'); frame.className = 'shot';
   preview = el('img'); preview.alt = 'Screenshot to annotate'; preview.hidden = true;
   preview.tabIndex = 0; preview.setAttribute('role','button'); preview.setAttribute('aria-label','Place pin: click or use arrow keys');
@@ -495,7 +536,9 @@ function enable(config: ReviewOptions) {
   author = el('input'); author.maxLength = 80; author.value = 'Tester';
   const authorLabel = el('label','Name in exported files (unverified)'); authorLabel.append(author); panel.append(authorLabel);
   contextInput = el('input'); contextInput.maxLength = 500;
-  const contextLabel = el('label','Scene / build / reproduction context'); contextLabel.append(contextInput); panel.append(contextLabel);
+  const contextLabel = el('label','Scene / build / reproduction context'); contextLabel.append(contextInput);
+  const contextDetails = el('details'); const contextSummary = el('summary','Add context (optional)');
+  contextDetails.append(contextSummary, contextLabel); panel.append(contextDetails);
   input_ = el('textarea'); input_.maxLength = 2000;
   const inputLabel = el('label','Comment'); inputLabel.append(input_); panel.append(inputLabel);
   saveButton = button('Save screenshot comment', save); panel.append(saveButton);
@@ -503,12 +546,20 @@ function enable(config: ReviewOptions) {
   pairingPanel.setAttribute('role', 'status'); panel.append(pairingPanel);
   status = el('p'); status.setAttribute('role','status'); panel.append(status);
   list = el('div'); panel.append(list); root.append(launcher,panel);
+  selectTool = tool => {
+    const files = tool === 'files' && !online;
+    panelTitle.textContent = files ? 'Review files' : 'Screenshot feedback';
+    bar.hidden = !files; authorLabel.hidden = !files; list.hidden = !files;
+    frame.hidden = files; contextDetails.hidden = files; inputLabel.hidden = files;
+    saveButton.hidden = files; fallbackAttach.hidden = true;
+  };
+  selectTool('screenshot');
   // Do not let game keyboard handlers consume review text.
   for (const type of ['keydown','keyup','keypress','pointerdown','pointerup','click']) root.addEventListener(type,event => event.stopPropagation());
   panel.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { event.preventDefault(); show(false); mark.focus(); }
+    if (event.key === 'Escape') { event.preventDefault(); show(false); if (!launcher.hidden) mark.focus(); }
     if (event.key === 'Tab') {
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not([hidden]),textarea,[tabindex="0"]')).filter(node => !node.hidden);
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not([hidden]),textarea,[tabindex="0"],summary')).filter(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
       const first = focusable[0], last = focusable[focusable.length - 1];
       if (event.shiftKey && root.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && root.activeElement === last) { event.preventDefault(); first?.focus(); }
@@ -527,11 +578,13 @@ function enable(config: ReviewOptions) {
     if (token !== generation) return;
     if (value?.mode === 'disabled') { disable(); return; }
     online = true; saveButton.textContent = 'Post to comments';
+    panel.classList.add('online'); selectTool('screenshot');
     // The host knows its own live tokens, so the panel can match the page it floats over at no
     // network cost. Values are colour-validated before reaching the stylesheet.
     const hostTheme = sanitizeTheme((value as { theme?: unknown } | undefined)?.theme);
     if (Object.keys(hostTheme).length) style.textContent = themeCss(config.theme ?? 'auto', hostTheme) + baseCss;
     applyLauncher(config.launcher ?? 'auto', value?.launcher !== 'sdk');
+    commentsTool.textContent = 'Comments'; toolIcon(commentsTool, commentsIcon);
     message('Screenshot comments are visible to everyone who can access this prototype.');
   }).catch(() => message('Local review mode. Save a file to share feedback.'));
 }
@@ -595,17 +648,17 @@ if (typeof window !== 'undefined') {
 
 export const review = {
   enable, disable,
-  open: () => { if (options) show(true); },
+  open: () => { if (options) { selectTool('screenshot'); show(true); } },
   importDocument,
   exportDocument: () => JSON.stringify(parseReviewDocument(JSON.stringify(doc))),
   /** Engine adapters can submit an end-of-frame screenshot without JS evaluation. */
-  attach: async (data: string) => { if (options) { setImage(await compress(data)); show(true); } },
+  attach: async (data: string) => { if (options) { selectTool('screenshot'); setImage(await compress(data)); show(true); } },
 
   /**
    * Takes a screenshot now and opens the composer. Bind it to a key, or call it the moment the
    * game notices its own failure, so a tester is handed a report instead of having to file one.
    */
-  capture: async () => { if (!options) return; show(true); await capture(); },
+  capture: async () => { if (!options) return; selectTool('screenshot'); show(true); await capture(); },
 
   /**
    * Opens the composer already filled in. `image` accepts a PNG/JPEG/WebP data URL for cases
@@ -614,6 +667,7 @@ export const review = {
    */
   compose: async (input: { text?: string; context?: string; image?: string } = {}) => {
     if (!options) return;
+    selectTool('screenshot');
     show(true);
     if (input.image) setImage(await compress(input.image));
     else await capture();

@@ -119,9 +119,12 @@ Prototir.review.enable({
 ### Where the button appears
 
 By default the SDK decides for you. Inside the Prototir player, Prototir draws **Feedback** in its
-own control bar beside Restart and Fullscreen, and the SDK stays out of the way. Anywhere else the
-SDK shows the Prototir mark, which opens a small menu: **Screenshot & comment**, **Comments**, and
-**Open on Prototir**. The menu unfolds from the mark, so the trigger never moves.
+own control bar beside Restart and Fullscreen, and the SDK stays out of the way. Feedback opens
+an icon menu with **Screenshot** and **Comments**. Anywhere else the SDK shows the Prototir mark:
+its menu offers **Screenshot** and **Review files** offline, or **Screenshot** and **Comments** when
+connected to Prototir. **Open on Prototir** appears when you supply `prototypeUrl`. Choosing
+Screenshot captures the current view and opens only the screenshot composer. If capture fails,
+the tester can attach an image instead.
 
 Set `launcher: 'watermark'` to always show the mark, or `launcher: 'host'` to draw nothing and call
 `review.open()` from your own UI.
@@ -162,11 +165,11 @@ feedback sits with every other comment and follows the same moderation and creat
 Prototir shows its own confirmation dialog, with the image, before anything is posted under the
 tester's account: an embedded experience cannot post on its own.
 
-Hosted anywhere else, the panel keeps the review in the browser and in a file. **Save review file**
-writes `feedback.prototir-review.json`, which the tester sends you and you reload with **Import
-review**. Where the browser supports it the same file is reopened and saved in place; elsewhere it
-downloads a fresh copy. Drafts are also kept in IndexedDB per project and build, so a reload does not
-lose work, but a file is the only durable copy.
+Hosted anywhere else, the panel keeps the review in the browser and in a file. Under **Review
+files**, **Save review file** writes `feedback.prototir-review.json`, which the tester sends you and
+you reload with **Import review**. Where the browser supports it the same file is reopened and
+saved in place; elsewhere it downloads a fresh copy. Drafts are also kept in IndexedDB per project
+and build, so a reload does not lose work, but a file is the only durable copy.
 
 The document holds the screenshots, pins, comments, replies and resolved state. It is data only:
 images must be inline PNG/JPEG/WebP data URLs, so an imported review can never fetch a remote URL or

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.5 - 2026-09-27
+
+- Split screenshot feedback into icon-led tools. The SDK badge opens Screenshot and Review files
+  when offline, or Screenshot and Comments when hosted. Screenshot opens a focused composer;
+  capture failure reveals Attach as a recovery option. Hosted players now command a capture
+  directly after their own tool menu selection.
+- Moved review-file import/export and the saved thread list behind Review files. Hosted comments
+  continue through the existing Prototir comment API and confirmation dialog.
+- Kept the Feedback badge legible on hover and sized hosted previews so Post remains visible.
+
 ## 0.2.4 - 2026-09-27
 
 - Replaced the feedback panel's font-rendered close glyph with a centered SVG X. The text glyph
