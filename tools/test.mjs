@@ -138,4 +138,38 @@ for (const [href, expected] of [
   globalThis.window = previous;
 }
 
+// The SDK is normally loaded from <head> with no `defer`, so when it runs there is no body yet.
+// Enabling feedback then leaves it half-built: `options` and `doc` are already set, so the SDK
+// reports itself enabled, while no overlay exists and the hello that makes the host show its own
+// Feedback control never goes out. This shipped, and the page under test read as "feedback
+// enabled" with no way to reach it.
+{
+  const waited = [];
+  const loading = {
+    parent: { postMessage: () => {} },
+    location: { href: 'https://p.prttr.com/?prototir_origin=https%3A%2F%2Fprototir.com&prototir_slug=rims-viewer' },
+    addEventListener: () => {}
+  };
+  const sandbox = vm.createContext({
+    window: loading,
+    document: {
+      readyState: 'loading',
+      addEventListener: (type) => waited.push(type)
+    },
+    URL,
+    URLSearchParams,
+    TextEncoder,
+    setTimeout,
+    clearTimeout,
+    console
+  });
+  vm.runInContext(source, sandbox);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assert.ok(
+    waited.includes('DOMContentLoaded'),
+    'feedback must wait for a document before building itself'
+  );
+}
+
 console.log('Web SDK protocol and validation checks passed.');

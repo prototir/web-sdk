@@ -559,11 +559,24 @@ function enableFromHost() {
 }
 
 if (typeof window !== 'undefined') {
-  // After the current task, so a build calling enable() in its own top-level code wins without
-  // paying for this one being built and torn down first. A resolved promise rather than
-  // queueMicrotask: this SDK runs inside engine webviews as well as browsers, and the narrower
-  // the assumptions about the host environment the better.
-  void Promise.resolve().then(enableFromHost);
+  // Not before there is a body to attach to. This SDK is normally loaded from <head> with no
+  // `defer`, so on a microtask `document.body` is still null and `enable()` dies half-built: it
+  // has already set `options` and `doc` by then, so the SDK looks enabled while no overlay
+  // exists and the hello that makes the host show its own Feedback control is never sent. The
+  // symptom is a page reporting feedback as on with no way to reach it.
+  //
+  // Still deferred rather than immediate, so a build calling enable() in its own top-level code
+  // wins without this one being built and torn down first.
+  const start = () => {
+    void Promise.resolve().then(enableFromHost);
+  };
+  if (typeof document === 'undefined') {
+    // Nothing to draw into and no event that will say otherwise.
+  } else if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
 }
 
 export const review = {

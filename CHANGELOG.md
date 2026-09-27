@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2 - 2026-09-27
+
+- Fixed feedback enabling itself before there was a document to draw into. The SDK is normally
+  loaded from `<head>` with no `defer`, so on a microtask `document.body` is still null and
+  `enable()` died half-built: it had already set its options, so the SDK reported feedback as on
+  while no overlay existed and the hello that makes the host show its Feedback control was never
+  sent. It now waits for `DOMContentLoaded`.
+
 ## 0.2.1 - 2026-09-23
 
 - Feedback now switches itself on when the host names the prototype, so adding the SDK is enough:
