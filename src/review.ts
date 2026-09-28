@@ -60,6 +60,8 @@ let x = .5, y = .5;
 let editing: string | null = null;
 let fileHandle: FileHandle | null = null;
 let online = false;
+let hostComposer = false;
+let hostOpened = false;
 let opened = false;
 let hostOrigin = '';
 let serial = 0;
@@ -110,13 +112,11 @@ function receive(event: MessageEvent) {
   // The Prototir player owns the entry point on its own surfaces, so it opens the panel from
   // its chrome rather than the SDK floating a second button over the same view.
   if (m.type === 'review:command') {
-    if (m.op === 'open' && options) show(true);
-    else if (m.op === 'capture' && options) {
-      selectTool('screenshot'); show(true);
-      void capture().then(() => { fallbackAttach.hidden = true; }).catch(error => {
-        message(error instanceof Error ? error.message : String(error));
-        fallbackAttach.hidden = false;
-      });
+    if ((m.op === 'open' || m.op === 'capture') && options) void openScreenshot().catch(captureError);
+    else if (m.op === 'state' && options && hostComposer) hostState(m.open === true);
+    else if (m.op === 'submitted' && options && hostComposer) {
+      setImage(''); input_.value = ''; submission = { payload: '', id: '' };
+      emit('submit', { online: true });
     }
     else if (m.op === 'close' && options) show(false);
     return;
@@ -235,6 +235,44 @@ async function capture() {
   fallbackAttach.hidden = true;
   contextInput.value = (options.context?.() ?? '').slice(0, 500);
   message('Check the screenshot, click to place its pin, and write your comment.');
+}
+function hostState(open: boolean) {
+  if (hostOpened === open) return;
+  hostOpened = open;
+  if (open) document.exitPointerLock?.();
+  options?.onOpenChange?.(open);
+  emit(open ? 'open' : 'close');
+}
+function captureError(error: unknown) {
+  if (!options) return;
+  selectTool('screenshot'); show(true);
+  message(error instanceof Error ? error.message : String(error));
+  fallbackAttach.hidden = false;
+  if (hostComposer) {
+    preview.parentElement!.hidden = true; contextInput.closest('details')!.hidden = true;
+    input_.parentElement!.hidden = true; saveButton.hidden = true;
+  }
+}
+async function handoff() {
+  if (!options || !hostComposer || !image) return;
+  show(false);
+  await send('compose', { text: input_.value, screenshot: { image, x, y, context: contextInput.value } });
+}
+async function openScreenshot(input: { text?: string; context?: string; image?: string } = {}) {
+  if (!options) return;
+  const token = generation;
+  selectTool('screenshot');
+  if (!hostComposer) show(true);
+  if (input.image) {
+    const compressed = await compress(input.image);
+    if (token !== generation || !options) return;
+    setImage(compressed);
+  } else await capture();
+  if (token !== generation || !options) return;
+  if (input.text !== undefined) input_.value = input.text.slice(0, 2000);
+  if (input.context !== undefined) contextInput.value = input.context.slice(0, 500);
+  if (hostComposer) await handoff();
+  else input_.focus();
 }
 function render() {
   list.replaceChildren();
@@ -462,7 +500,7 @@ function enable(config: ReviewOptions) {
   mark.setAttribute('aria-expanded', 'false');
   const dot = el('span'); dot.className = 'mark-dot'; dot.setAttribute('aria-hidden', 'true');
   mark.prepend(dot);
-  const screenshotTool = button('Screenshot', () => { setMenu(false); selectTool('screenshot'); show(true); void capture().catch(error => { message(String(error)); fallbackAttach.hidden = false; }); });
+  const screenshotTool = button('Screenshot', () => { setMenu(false); void openScreenshot().catch(captureError); });
   const menuStatus = el('small'); menuStatus.hidden = true; menuStatus.setAttribute('role','status');
   const commentsTool = button('Review files', async () => {
     setMenu(false);
@@ -509,7 +547,7 @@ function enable(config: ReviewOptions) {
   const bar = el('div'); bar.className = 'bar';
   const file = el('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp'; file.hidden = true;
   file.onchange = async () => {
-    try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); setImage(await compress(selected)); fallbackAttach.hidden = true; } }
+    try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); const token = generation; const compressed = await compress(selected); if (token !== generation || !options) return; setImage(compressed); fallbackAttach.hidden = true; if (hostComposer) await handoff(); } }
     catch (error) { message(String(error)); } finally { file.value = ''; }
   };
   panel.append(file);
@@ -618,10 +656,15 @@ function enable(config: ReviewOptions) {
   // Off Prototir the build's own call is the last word. On Prototir the dashboard wins, so a
   // creator can switch feedback off live without shipping a new build.
   applyLauncher(config.launcher ?? 'auto', false);
-  if (hostOrigin && window.parent !== window) void send('hello').then((value: { mode?: string; launcher?: string } | undefined) => {
+  if (hostOrigin && window.parent !== window) void send('hello').then((value: { mode?: string; launcher?: string; composer?: string; composerOpen?: boolean } | undefined) => {
     if (token !== generation) return;
     if (value?.mode === 'disabled') { disable(); return; }
-    online = true; saveButton.textContent = 'Post to comments';
+    online = true; hostComposer = value?.composer === 'host';
+    if (hostComposer) {
+      const wasOpen = opened; show(false); hostState(value?.composerOpen === true);
+      if (wasOpen) void (image ? handoff() : openScreenshot()).catch(captureError);
+    }
+    saveButton.textContent = 'Post to comments';
     panel.classList.add('online'); selectTool('screenshot');
     // The host knows its own live tokens, so the panel can match the page it floats over at no
     // network cost. Values are colour-validated before reaching the stylesheet.
@@ -640,10 +683,10 @@ function importDocument(text: string) {
 }
 function disable() {
   generation++;
-  if (opened) options?.onOpenChange?.(false);
+  if (opened || hostOpened) options?.onOpenChange?.(false);
   if (typeof window !== 'undefined') window.removeEventListener('message',receive);
   for (const request of requests.values()) { clearTimeout(request.timer); request.reject(new Error('Review closed.')); }
-  requests.clear(); host?.remove(); options = null; online = false; opened = false; image = ''; editing = null; fileHandle = null; dirty = false; busy = false;
+  requests.clear(); host?.remove(); options = null; online = false; hostComposer = false; hostOpened = false; opened = false; image = ''; editing = null; fileHandle = null; dirty = false; busy = false;
 }
 export type ReviewEvent = 'open' | 'close' | 'submit' | 'error';
 
@@ -692,34 +735,24 @@ if (typeof window !== 'undefined') {
 
 export const review = {
   enable, disable,
-  open: () => { if (options) { selectTool('screenshot'); show(true); } },
+  open: () => { if (options) { if (hostComposer) void openScreenshot().catch(captureError); else { selectTool('screenshot'); show(true); } } },
   importDocument,
   exportDocument: () => JSON.stringify(parseReviewDocument(JSON.stringify(doc))),
   /** Engine adapters can submit an end-of-frame screenshot without JS evaluation. */
-  attach: async (data: string) => { if (options) { selectTool('screenshot'); setImage(await compress(data)); show(true); } },
+  attach: async (data: string) => openScreenshot({ image: data }),
 
   /**
    * Takes a screenshot now and opens the composer. Bind it to a key, or call it the moment the
    * game notices its own failure, so a tester is handed a report instead of having to file one.
    */
-  capture: async () => { if (!options) return; selectTool('screenshot'); show(true); await capture(); },
+  capture: async () => openScreenshot(),
 
   /**
    * Opens the composer already filled in. `image` accepts a PNG/JPEG/WebP data URL for cases
    * where the game has a better frame than a live capture would give (the frame before a crash,
    * a rendered diff); without it the current view is captured.
    */
-  compose: async (input: { text?: string; context?: string; image?: string } = {}) => {
-    if (!options) return;
-    selectTool('screenshot');
-    show(true);
-    if (input.image) setImage(await compress(input.image));
-    else await capture();
-    if (input.text !== undefined) input_.value = input.text.slice(0, 2000);
-    // A caller-supplied context replaces the `context` callback's value for this one report.
-    if (input.context !== undefined) contextInput.value = input.context.slice(0, 500);
-    input_.focus();
-  },
+  compose: async (input: { text?: string; context?: string; image?: string } = {}) => openScreenshot(input),
 
   /** Subscribes to overlay events. Returns an unsubscribe function. */
   on: (event: ReviewEvent, handler: (detail?: unknown) => void) => {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.8 - 2026-09-28
+
+- Hosted captures open one Prototir-owned composer for the pin, context and comment. Posting, sign-in and draft recovery stay on the host; SDK open/close hooks still let a game pause.
+- Self-hosted builds retain the portable review tools. Hosts that do not advertise the new composer keep the existing protocol.
+
 ## 0.2.6 - 2026-09-27
 
 - Kept Post visible in the short hosted watch-page player by anchoring it to the bottom of the

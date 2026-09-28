@@ -212,3 +212,7 @@ publishing requirements.
 ## License
 
 [MIT](LICENSE.md)
+
+### Hosted screenshot composer
+
+On Prototir (including fullscreen and embeds), the SDK captures the frame and opens a single host composer. The visitor places a pin, writes a comment, and explicitly posts. Closing, sign-in and failed posts keep the draft in that tab for up to two hours. Images and text pass the existing server moderation checks. Outside Prototir, the portable SDK review panel remains available.
