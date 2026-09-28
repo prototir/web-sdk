@@ -89,6 +89,7 @@ const toolIcon = (node: HTMLElement, paths: string[]) => {
     path.setAttribute('d', data); icon.append(path);
   }
   node.prepend(icon);
+  return icon;
 };
 const cameraIcon = ['M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z', 'M12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6'];
 const commentsIcon = ['M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z'];
@@ -397,7 +398,7 @@ function enable(config: ReviewOptions) {
     :host{font:14px/1.45 system-ui,sans-serif;color:var(--ptr-ink)}
     *{box-sizing:border-box} [hidden]{display:none!important}
     button{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px;cursor:pointer}
-    button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
+    button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
     .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch}
     .mark{display:inline-flex;align-items:center;gap:8px;background:var(--ptr-accent);color:var(--ptr-accent-ink);box-shadow:0 3px 20px #0004;border-color:var(--ptr-accent)}
     .mark:hover{background:var(--ptr-accent);filter:brightness(1.08)}
@@ -420,6 +421,13 @@ function enable(config: ReviewOptions) {
     .panel-close svg{display:block;width:18px;height:18px}
     .bar{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
     details{margin:12px 0}summary{cursor:pointer;color:var(--ptr-muted)}
+    .context-disclosure>summary{display:flex;align-items:center;gap:6px;min-height:28px;list-style:none;border-radius:4px}
+    .context-disclosure>summary::-webkit-details-marker{display:none}
+    .context-disclosure>summary:hover{color:var(--ptr-ink)}
+    .disclosure-chevron{display:block;width:16px;height:16px;flex:none;transition:transform 180ms cubic-bezier(.2,.8,.3,1)}
+    .context-disclosure>summary[aria-expanded=true] .disclosure-chevron{transform:rotate(90deg)}
+    .context-body{display:flow-root}
+    @media (prefers-reduced-motion:reduce){.disclosure-chevron{transition:none}}
     h2{margin:0;padding-right:36px;font-size:22px}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:var(--ptr-muted)}
     textarea,input{font:inherit;padding:10px;border:1px solid var(--ptr-line);border-radius:7px;width:100%;background:var(--ptr-surface-raised);color:var(--ptr-ink)}
     textarea{min-height:80px;resize:vertical}label{display:block;margin-top:10px}
@@ -539,7 +547,42 @@ function enable(config: ReviewOptions) {
   contextInput = el('input'); contextInput.maxLength = 500;
   const contextLabel = el('label','Scene / build / reproduction context'); contextLabel.append(contextInput);
   const contextDetails = el('details'); const contextSummary = el('summary','Add context (optional)');
-  contextDetails.append(contextSummary, contextLabel); panel.append(contextDetails);
+  contextDetails.className = 'context-disclosure';
+  // Lucide ChevronRight, matching the webapp's disclosure marker without a network dependency.
+  toolIcon(contextSummary, ['m9 18 6-6-6-6']).classList.add('disclosure-chevron');
+  contextSummary.setAttribute('aria-expanded', 'false');
+  const contextBody = el('div'); contextBody.className = 'context-body'; contextBody.inert = true;
+  contextBody.append(contextLabel);
+  contextDetails.append(contextSummary, contextBody); panel.append(contextDetails);
+  let contextExpanded = false;
+  let contextAnimation: Animation | null = null;
+  contextSummary.addEventListener('click', event => {
+    // Native summary keyboard activation still sends a click. Keep details open during closing
+    // so its body can shrink, then restore native collapsed semantics at the end.
+    event.preventDefault();
+    // Closed details can retain layout bounds in Chromium even though their content is hidden.
+    const height = contextDetails.open ? contextBody.getBoundingClientRect().height : 0;
+    const opacity = getComputedStyle(contextBody).opacity;
+    contextAnimation?.cancel(); contextAnimation = null;
+    contextExpanded = !contextExpanded;
+    contextSummary.setAttribute('aria-expanded', String(contextExpanded));
+    if (!contextExpanded && contextBody.contains(root.activeElement)) contextSummary.focus();
+    contextBody.inert = !contextExpanded;
+    contextDetails.open = true;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || !contextBody.animate) {
+      contextDetails.open = contextExpanded; contextBody.style.removeProperty('overflow'); return;
+    }
+    contextBody.style.overflow = 'hidden';
+    const animation = contextAnimation = contextBody.animate([
+      { height: `${height}px`, opacity: height ? opacity : '0' },
+      { height: `${contextExpanded ? contextBody.scrollHeight : 0}px`, opacity: contextExpanded ? '1' : '0' }
+    ], { duration: 180, easing: 'cubic-bezier(.2,.8,.3,1)', fill: 'both' });
+    animation.onfinish = () => {
+      if (contextAnimation !== animation) return;
+      contextDetails.open = contextExpanded; contextAnimation = null; animation.cancel();
+      contextBody.style.removeProperty('overflow');
+    };
+  });
   input_ = el('textarea'); input_.maxLength = 2000;
   const inputLabel = el('label','Comment'); inputLabel.append(input_); panel.append(inputLabel);
   saveButton = button('Save screenshot comment', save); saveButton.className = 'review-submit'; panel.append(saveButton);
@@ -560,7 +603,7 @@ function enable(config: ReviewOptions) {
   panel.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); show(false); if (!launcher.hidden) mark.focus(); }
     if (event.key === 'Tab') {
-      const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not([hidden]),textarea,[tabindex="0"],summary')).filter(node => !node.closest('[hidden]') && node.getClientRects().length > 0);
+      const focusable = Array.from(panel.querySelectorAll<HTMLElement>('button:not(:disabled),input:not([hidden]),textarea,[tabindex="0"],summary')).filter(node => !node.closest('[hidden],[inert]') && node.getClientRects().length > 0);
       const first = focusable[0], last = focusable[focusable.length - 1];
       if (event.shiftKey && root.activeElement === first) { event.preventDefault(); last?.focus(); }
       else if (!event.shiftKey && root.activeElement === last) { event.preventDefault(); first?.focus(); }
