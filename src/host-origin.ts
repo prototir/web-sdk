@@ -35,7 +35,7 @@ export function resolveHostOrigin<T extends string>(fallback: T): string | T {
  *
  * This exists so a creator who adds the SDK gets feedback without configuring anything. The
  * prototype's identity is the host's to know, not the build's: the slug does not exist until the
- * prototype does, which is the same reason it is injected into downloadable builds at upload.
+ * prototype does, which is the same reason it is injected into native builds at upload.
  */
 export function resolveHostProject(): string | null {
 	try {
