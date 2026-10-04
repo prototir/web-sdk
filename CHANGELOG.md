@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Feedback & tools.** One bordered control whose tools unfold inside it (no floating menu):
+  Screenshot, Comment (text only), Console and Performance.
+  - Console records from load (the last 300 messages and uncaught errors, formatted cheaply).
+  - Performance charts frame rate, slowest frame and memory, and runs only while open.
+  - Both panels offer Copy and Attach to comment; a message is always required.
+  - `tools: { console: false, … }` or `tools: false` turns tools off.
+  - New API: `review.comment()`, `review.tool()`, `review.consoleText()`.
 - Feedback is offered only where it reaches Prototir: hosted on Prototir, or a self-hosted build
   given `apiBase` and `slug`. Without either, the button, `review.open()` and `review.capture()`
   do nothing, and "Review files" (offline review documents) is no longer offered. Offline review

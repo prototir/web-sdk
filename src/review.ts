@@ -2,6 +2,12 @@ import { resolveHostOrigin, resolveHostProject } from './host-origin';
 import { sanitizeTheme, themeCss } from './theme';
 import { awaitApproval, PairingCancelled, postComment, startPairing, storeToken, storedToken, type PairingStart } from './pairing';
 import { MAX_REVIEW_BYTES, parseReviewDocument, type ReviewDocument, type ReviewThread } from './review-document';
+import { clearConsole, consoleEntries, consoleText, installConsoleCapture, onConsoleEntry, uninstallConsoleCapture, type ConsoleEntry } from './console-capture';
+import { onPerformanceSample, performanceSamples, performanceSummary, startPerformance, stopPerformance } from './performance-monitor';
+
+/** The testing tools the "Feedback & tools" control offers (§16.7). */
+export type ReviewTool = 'screenshot' | 'comment' | 'console' | 'performance';
+const ALL_TOOLS: ReviewTool[] = ['screenshot', 'comment', 'console', 'performance'];
 
 export interface ReviewOptions {
   project: string;
@@ -32,6 +38,12 @@ export interface ReviewOptions {
    */
   apiBase?: string;
   slug?: string;
+  /**
+   * Which tools testers get. All are on by default; switch any off, or pass `false` for none:
+   * `tools: { console: false }`. Console recording starts when the SDK loads, so turning the
+   * Console tool off also stops recording.
+   */
+  tools?: false | Partial<Record<ReviewTool, boolean>>;
 }
 type FileHandle = { createWritable(): Promise<{ write(data: string): Promise<void>; close(): Promise<void> }> };
 let options: ReviewOptions | null = null;
@@ -45,6 +57,20 @@ let baseCss = '';
 const listeners = new Map<string, Set<(detail: any) => void>>();
 let menu: HTMLElement;
 let mark: HTMLButtonElement;
+let enabledTools: ReviewTool[] = [...ALL_TOOLS];
+let toolButtons: Partial<Record<ReviewTool, HTMLButtonElement>> = {};
+let consolePanel: HTMLElement | null = null;
+/** Holds the Console and Performance panels in one column, away from the control. */
+let toolStack: HTMLElement | null = null;
+let performancePanel: HTMLElement | null = null;
+let stopConsoleWatch: (() => void) | null = null;
+let stopPerformanceWatch: (() => void) | null = null;
+/** A console log or performance summary attached to the comment being written. */
+let attachment = '';
+let attachmentNote: HTMLElement;
+/** Writing a comment with no screenshot (the Comment tool, or an attachment). */
+let commentMode = false;
+let attachmentKind: 'console' | 'performance' = 'console';
 let list: HTMLElement;
 let status: HTMLElement;
 let preview: HTMLImageElement;
@@ -94,8 +120,15 @@ const toolIcon = (node: HTMLElement, paths: string[]) => {
   return icon;
 };
 const cameraIcon = ['M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z', 'M12 16a3 3 0 1 0 0-6 3 3 0 0 0 0 6'];
-const commentsIcon = ['M21 11.5a8.5 8.5 0 0 1-12.3 7.6L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5Z'];
-const filesIcon = ['M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'];
+// Lucide icons, inlined so the overlay never fetches anything.
+const feedbackIcon = ['M22 17a2 2 0 0 1-2 2H6.83a2 2 0 0 0-1.41.59l-2.2 2.2A.71.71 0 0 1 2 21.29V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z', 'M12 7v6', 'M9 10h6'];
+const commentIcon = ['M22 17a2 2 0 0 1-2 2H6.83a2 2 0 0 0-1.41.59l-2.2 2.2A.71.71 0 0 1 2 21.29V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z'];
+const terminalIcon = ['m7 11 2-2-2-2', 'M11 13h4', 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'];
+const activityIcon = ['M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2'];
+const closePaths = ['M18 6 6 18', 'm6 6 12 12'];
+
+// From the moment the SDK loads, so an early error is already there when someone opens Console.
+if (typeof window !== 'undefined') installConsoleCapture();
 function send(op: string, payload: unknown = {}): Promise<any> {
   if (!hostOrigin || window.parent === window) return Promise.reject(new Error('No Prototir host.'));
   const id = ++serial;
@@ -113,6 +146,11 @@ function receive(event: MessageEvent) {
   // its chrome rather than the SDK floating a second button over the same view.
   if (m.type === 'review:command') {
     if ((m.op === 'open' || m.op === 'capture') && options) void openScreenshot().catch(captureError);
+    // The host's own "Feedback & tools" control (the embed badge, the player's menu) drives the
+    // panels here, because the console and the frames being measured live in this frame.
+    else if (m.op === 'comment' && options) void openComment().catch(captureError);
+    else if (m.op === 'tool' && options && (m.tool === 'console' || m.tool === 'performance'))
+      setToolPanel(m.tool, m.on === true, false);
     else if (m.op === 'state' && options && hostComposer) hostState(m.open === true);
     else if (m.op === 'submitted' && options && hostComposer) {
       setImage(''); input_.value = ''; submission = { payload: '', id: '' };
@@ -178,6 +216,174 @@ function setMenu(open: boolean) {
   menu.hidden = !open;
   mark?.setAttribute('aria-expanded', String(open));
   if (open) (menu.querySelector('button, a') as HTMLElement | null)?.focus();
+}
+
+/** An icon for a tool row, a heading or a close button. */
+function svgIcon(paths: string[], className = ''): SVGSVGElement {
+  const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  for (const [name, value] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) icon.setAttribute(name, value);
+  if (className) icon.setAttribute('class', className);
+  for (const data of paths) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', data); icon.append(path);
+  }
+  return icon;
+}
+
+/** A Console or Performance switch in the control: pressed while its panel is open. */
+function setToolPressed(tool: 'console' | 'performance', on: boolean) {
+  const node = toolButtons[tool];
+  if (!node) return;
+  node.setAttribute('aria-pressed', String(on));
+  const state = node.querySelector('.tool-state');
+  if (state) state.textContent = on ? 'On' : 'Off';
+}
+
+/**
+ * Opens or closes the Console or Performance panel. `fromHere` is a click inside this frame:
+ * the host's control is then told, so its switch shows the same state.
+ */
+function setToolPanel(tool: 'console' | 'performance', on: boolean, fromHere: boolean) {
+  if (!options || !enabledTools.includes(tool)) return;
+  if (tool === 'console') {
+    if (on) openConsolePanel(); else closeConsolePanel();
+  } else if (on) openPerformancePanel(); else closePerformancePanel();
+  setToolPressed(tool, on);
+  if (fromHere && online) void send('tool', { tool, on }).catch(() => {});
+}
+
+function toolPanel(title: string, icon: string[], onClose: () => void): { panel: HTMLElement; body: HTMLElement; actions: HTMLElement } {
+  const node = el('section'); node.className = 'tool-panel'; node.setAttribute('role', 'dialog'); node.setAttribute('aria-label', title);
+  const head = el('div'); head.className = 'tool-panel-head';
+  const heading = el('strong', title); heading.prepend(svgIcon(icon, 'tool-icon'));
+  const actions = el('div'); actions.className = 'tool-panel-actions';
+  const close = button('', onClose); close.className = 'icon-button'; close.setAttribute('aria-label', 'Close ' + title); close.title = 'Close';
+  close.append(svgIcon(closePaths));
+  head.append(heading, close);
+  const body = el('div'); body.className = 'tool-panel-body';
+  node.append(head, body, actions);
+  return { panel: node, body, actions };
+}
+
+function consoleLine(entry: ConsoleEntry): HTMLElement {
+  const line = el('div'); line.className = 'console-line lv-' + entry.level;
+  const time = el('span', new Date(entry.time).toISOString().slice(11, 19)); time.className = 'console-time';
+  line.append(time, document.createTextNode(' ' + entry.text));
+  return line;
+}
+
+function openConsolePanel() {
+  if (consolePanel) return;
+  const { panel: node, body, actions } = toolPanel('Console', terminalIcon, () => setToolPanel('console', false, true));
+  node.classList.add('console-panel');
+  const lines = el('div'); lines.className = 'console-lines'; lines.setAttribute('role', 'log');
+  const render = () => {
+    const entries = consoleEntries();
+    lines.replaceChildren(...(entries.length ? entries.map(consoleLine) : [el('p', 'Nothing logged yet.')]));
+    lines.scrollTop = lines.scrollHeight;
+  };
+  render();
+  // New lines are added at most once a frame, however fast the game logs.
+  let queued = false;
+  stopConsoleWatch = onConsoleEntry(() => {
+    if (queued) return; queued = true;
+    requestAnimationFrame(() => { queued = false; if (consolePanel) render(); });
+  });
+  const copy = button('Copy', async () => {
+    await navigator.clipboard.writeText(consoleText());
+    copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+  });
+  actions.append(copy, button('Clear', () => { clearConsole(); }), button('Attach to comment', () => attach(consoleText(), 'console')));
+  body.append(lines);
+  consolePanel = node; panelColumn().append(node);
+}
+
+function panelColumn(): HTMLElement {
+  if (!toolStack) { toolStack = el('div'); toolStack.className = 'tool-stack'; root.append(toolStack); }
+  toolStack.classList.toggle('on-left', launcher.classList.contains('at-right'));
+  return toolStack;
+}
+
+function closeConsolePanel() {
+  stopConsoleWatch?.(); stopConsoleWatch = null;
+  consolePanel?.remove(); consolePanel = null;
+}
+
+function openPerformancePanel() {
+  if (performancePanel) return;
+  const { panel: node, body, actions } = toolPanel('Performance', activityIcon, () => setToolPanel('performance', false, true));
+  node.classList.add('performance-panel');
+  const canvas = el('canvas'); canvas.width = 560; canvas.height = 180; canvas.className = 'performance-chart';
+  canvas.setAttribute('role', 'img'); canvas.setAttribute('aria-label', 'Frame rate over the last minute');
+  const stats = el('p'); stats.className = 'performance-stats'; stats.setAttribute('role', 'status');
+  const draw = () => {
+    const samples = performanceSamples();
+    const latest = samples[samples.length - 1];
+    stats.textContent = latest
+      ? `${latest.fps.toFixed(0)} fps · slowest frame ${latest.worstFrame.toFixed(0)} ms${latest.memory !== undefined ? ` · ${latest.memory.toFixed(0)} MB` : ''}`
+      : 'Recording…';
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const styles = getComputedStyle(node);
+    const { width, height } = canvas;
+    ctx.clearRect(0, 0, width, height);
+    const top = Math.max(80, ...samples.map(sample => sample.fps) ) * 1.1;
+    ctx.strokeStyle = styles.getPropertyValue('--ptr-line').trim() || '#888'; ctx.lineWidth = 1;
+    for (const mark of [30, 60]) {
+      const y = height - (mark / top) * height;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      ctx.fillStyle = styles.getPropertyValue('--ptr-muted').trim() || '#888'; ctx.font = '20px system-ui'; ctx.fillText(String(mark), 4, y - 4);
+    }
+    ctx.strokeStyle = styles.getPropertyValue('--ptr-accent').trim() || '#2563eb'; ctx.lineWidth = 3;
+    ctx.beginPath();
+    samples.forEach((sample, index) => {
+      const x = (index / Math.max(samples.length - 1, 1)) * width, y = height - (sample.fps / top) * height;
+      if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.stroke();
+  };
+  stopPerformanceWatch = onPerformanceSample(draw);
+  startPerformance();
+  draw();
+  const copy = button('Copy', async () => {
+    await navigator.clipboard.writeText(performanceSummary());
+    copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+  });
+  actions.append(copy, button('Attach to comment', () => attach(performanceSummary(), 'performance')));
+  body.append(canvas, stats);
+  performancePanel = node; panelColumn().append(node);
+}
+
+function closePerformancePanel() {
+  stopPerformance();
+  stopPerformanceWatch?.(); stopPerformanceWatch = null;
+  performancePanel?.remove(); performancePanel = null;
+}
+
+/** Starts a comment carrying `text` (a console log or a performance summary). A message is
+ *  still required: the attachment never goes out on its own. */
+async function attach(text: string, kind: 'console' | 'performance') {
+  if (!text.trim()) throw new Error('Nothing to attach yet.');
+  attachmentKind = kind;
+  await openComment({ console: text });
+}
+
+/** A comment without a screenshot: the Comment tool, or one carrying an attachment. */
+async function openComment(input: { console?: string } = {}) {
+  if (!options || !connected()) return;
+  if (hostComposer) { await send('compose', { text: '', ...(input.console ? { console: input.console } : {}) }); return; }
+  commentMode = true; setImage(''); attachment = input.console ?? '';
+  selectTool('screenshot');
+  show(true);
+  input_.focus();
+}
+
+function showAttachment() {
+  if (!attachmentNote) return;
+  const lines = attachment ? attachment.split('\n').length : 0;
+  attachmentNote.hidden = !attachment;
+  const what = attachmentKind === 'performance' ? 'performance summary' : 'console log';
+  attachmentNote.textContent = attachment ? `Attached: ${what}, ${lines} ${lines === 1 ? 'line' : 'lines'}. Shared with your message; check it for private information.` : '';
 }
 
 /**
@@ -280,6 +486,7 @@ async function handoff() {
 }
 async function openScreenshot(input: { text?: string; context?: string; image?: string } = {}) {
   if (!options) return;
+  commentMode = false; attachment = '';
   const token = generation;
   selectTool('screenshot');
   if (!hostComposer) show(true);
@@ -379,11 +586,17 @@ function showPairing(start: PairingStart, cancel: () => void) {
 
 async function save() {
   if (busy) return;
-  if (!image || !input_.value.trim()) throw new Error('Add a screenshot and a comment first.');
+  // A message is always required; a screenshot only when this is a screenshot comment.
+  if (!input_.value.trim()) throw new Error('Write a comment first: a screenshot or a log is shared with a message.');
+  if (!commentMode && !image) throw new Error('Add a screenshot first.');
   busy = true; saveButton.disabled = true;
   try {
     if (!online && options!.apiBase && options!.slug) {
-      const payload = { text: input_.value.trim(), screenshot: { image, x, y, context: contextInput.value } };
+      const payload = {
+        text: input_.value.trim(),
+        ...(image ? { screenshot: { image, x, y, context: contextInput.value } } : {}),
+        ...(attachment ? { console: attachment } : {}),
+      };
       const serialized = JSON.stringify(payload);
       if (submission.payload !== serialized) submission = { payload: serialized, id: uid() };
       const body = { ...payload, clientId: submission.id };
@@ -423,7 +636,8 @@ async function save() {
       message('Saved in this review. Open Review files from Feedback to export it.');
       emit('submit', { online: false });
     }
-    input_.value = ''; editing = null; setImage('');
+    input_.value = ''; editing = null; setImage(''); attachment = ''; showAttachment();
+    if (commentMode) show(false);
   } finally { busy = false; saveButton.disabled = false; }
 }
 async function saveFile() {
@@ -458,24 +672,44 @@ function enable(config: ReviewOptions) {
     button{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px;cursor:pointer}
     button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
     .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch}
-    .mark{display:inline-flex;align-items:center;gap:8px;background:var(--ptr-surface-raised);color:var(--ptr-muted);border-color:var(--ptr-line-strong);box-shadow:0 3px 20px #0003;font-weight:600}
-    .mark:hover{background:var(--ptr-surface-raised);color:var(--ptr-ink);border-color:var(--ptr-ink)}
+    /* "Feedback & tools": one bordered control whose tools unfold inside the same border, like the
+       Prototir badge's control on an embed. No floating menu. */
+    .dock{display:flex;flex-direction:column;min-width:210px;border:1px solid var(--ptr-line-strong);border-radius:12px;background:var(--ptr-surface-raised);box-shadow:0 3px 20px #0003;overflow:hidden}
+    .dock-head{display:flex;align-items:center;gap:8px;width:100%;border:0;border-radius:0;background:transparent;color:var(--ptr-muted);font-weight:600;text-align:left}
+    .dock-head:hover{background:transparent;color:var(--ptr-ink)}
+    .dock-head .dock-label{flex:1}
+    .dock-head svg,.tool svg{display:block;width:16px;height:16px;flex:none}
+    .dock-tools{display:grid;gap:2px;padding:6px}
+    .dock-tools+.dock-head,.dock-head+.dock-tools{border-top:1px solid var(--ptr-line)}
+    .tool{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;border:0;border-radius:9px;background:transparent;color:var(--ptr-ink);font-weight:600;text-align:left;padding:8px 12px}
+    .tool svg{width:20px!important;height:20px!important}
+    .tool .tool-state{margin-left:auto;font-weight:500;font-size:12px;color:var(--ptr-muted)}
+    .tool[aria-pressed=true] .tool-state{color:var(--ptr-accent)}
+    a.tool{text-decoration:none;border-radius:8px}a.tool:hover{background:var(--ptr-surface)}
+    .tool-stack{position:absolute;top:16px;bottom:16px;right:16px;z-index:1;display:flex;flex-direction:column;justify-content:flex-end;gap:12px;width:min(560px,calc(100% - 32px));pointer-events:none}
+    .tool-stack.on-left{right:auto;left:16px}
+    .tool-panel{pointer-events:auto;position:relative;flex:none;display:flex;flex-direction:column;background:var(--ptr-background);border:1px solid var(--ptr-line-strong);border-radius:12px;box-shadow:0 12px 40px #0005;overflow:hidden}
+    .tool-panel-head{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-bottom:1px solid var(--ptr-line)}
+    .tool-panel-head strong{display:flex;align-items:center;gap:8px;flex:1}
+    .tool-icon{width:16px;height:16px}
+    .tool-panel-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding:8px 12px;border-top:1px solid var(--ptr-line)}.tool-panel-actions button{padding:5px 9px;font-size:12px}
+    .icon-button{display:grid;place-items:center;width:30px;height:30px;padding:0}.icon-button svg{width:16px;height:16px}
+    .console-panel{order:1;flex:0 1 auto;min-height:0;max-height:460px}
+    .panel{z-index:2}
+    .tool-panel-body{display:flex;flex-direction:column;min-height:0;flex:1}
+    .console-lines{flex:1;min-height:0;overflow:auto;padding:8px 12px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
+    .console-time{color:var(--ptr-muted)}.lv-warn{color:#b7791f}.lv-error{color:#d23a3a}.lv-debug{color:var(--ptr-muted)}
+    .performance-panel{order:0;align-self:flex-end;width:min(340px,100%)}
+    .tool-stack.on-left .performance-panel{align-self:flex-start}
+    .panel.compact{inset:auto 0;top:50%;transform:translateY(-50%);margin:0 auto;width:min(560px,calc(100% - 32px))}
+    .performance-chart{display:block;width:100%;height:auto;padding:8px 12px 0}
+    .performance-stats{margin:6px 12px 10px;font-size:12px;color:var(--ptr-muted)}
+        .attachment-note{margin:10px 0 0;padding:8px 10px;border:1px solid var(--ptr-line);border-radius:8px;background:var(--ptr-surface);font-size:12px;color:var(--ptr-muted)}
     /* The accordion chevron: it points the way the menu opens (up from a bottom corner, down from
        a top one) and turns around while the menu is open. */
     .mark-chevron{width:16px;height:16px;flex:none;transition:transform 160ms ease;transform:rotate(180deg)}
-    .launcher.at-top .mark-chevron,.mark[aria-expanded="true"] .mark-chevron{transform:none}
-    .launcher.at-top .mark[aria-expanded="true"] .mark-chevron{transform:rotate(180deg)}
-    .menu{position:absolute;width:min(230px,calc(100vw - 16px));display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;transform-origin:var(--ptr-menu-origin);transition:transform 160ms cubic-bezier(.2,.8,.3,1),opacity 120ms ease}
-    /* Grows out of the mark, away from the edge it sits on, so the trigger never moves and the
-       motion reads as the panel unfolding from the badge rather than appearing over the game. */
-    .menu[hidden]{display:flex!important;opacity:0;pointer-events:none;transform:translateY(var(--ptr-menu-shift)) scaleY(.96)}
-    .menu:not([hidden]){opacity:1;transform:none}
-    @media (prefers-reduced-motion:reduce){.menu{transition:none}.menu[hidden]{display:none!important}}
-    .menu button,.menu a{width:100%;text-align:left;text-decoration:none;display:flex;align-items:center;gap:10px}
-    .menu svg{display:block;width:18px;height:18px;flex:none}
-    .menu a{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px}
-    .menu a:hover{background:var(--ptr-surface)}
-    .menu small{overflow-wrap:anywhere}
+    .launcher.at-top .mark-chevron,.dock-head[aria-expanded="true"] .mark-chevron{transform:none}
+    .launcher.at-top .dock-head[aria-expanded="true"] .mark-chevron{transform:rotate(180deg)}
     .panel{pointer-events:auto;position:absolute;inset:16px;margin:auto;width:min(920px,calc(100% - 32px));max-height:calc(100% - 32px);overflow:auto;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:16px;padding:20px;box-shadow:0 12px 60px #0006}
     .panel.online{width:min(640px,calc(100% - 32px))}
     .panel.online .review-submit{position:sticky;bottom:0;z-index:1;margin-top:8px;box-shadow:0 8px 0 8px var(--ptr-background)}
@@ -516,45 +750,42 @@ function enable(config: ReviewOptions) {
   launcher.style.setProperty(atTop ? 'top' : 'bottom', `max(${offset}px, env(safe-area-inset-${atTop ? 'top' : 'bottom'}))`);
   launcher.style.setProperty(corner.endsWith('left') ? 'left' : 'right', offset + 'px');
 
-  // The menu grows away from the mark so the trigger stays visible and the opposite edge, where
-  // games put their HUD, stays clear.
-  menu = el('div'); menu.className = 'menu'; menu.hidden = true;
-  menu.setAttribute('role', 'menu'); menu.setAttribute('aria-label', 'Prototir feedback');
-  mark = button('Feedback', () => setMenu(menu.hidden));
-  mark.className = 'mark'; mark.setAttribute('aria-haspopup', 'menu');
-  mark.setAttribute('aria-expanded', 'false');
-  mark.append(chevron());
-  const screenshotTool = button('Screenshot', () => { setMenu(false); void openScreenshot().catch(captureError); });
-  const menuStatus = el('small'); menuStatus.hidden = true; menuStatus.setAttribute('role','status');
-  const commentsTool = button('Review files', async () => {
-    setMenu(false);
-    if (online) {
-      try { await send('browse'); }
-      catch (error) { menuStatus.textContent = error instanceof Error ? error.message : String(error); menuStatus.hidden = false; setMenu(true); }
-    } else { selectTool('files'); show(true); }
-  });
-  screenshotTool.setAttribute('role','menuitem'); commentsTool.setAttribute('role','menuitem');
-  toolIcon(screenshotTool, cameraIcon); toolIcon(commentsTool, filesIcon);
-  // Hidden until hosted, where it becomes Comments: offline review files are paused (see applyLauncher).
-  commentsTool.hidden = true;
-  menu.append(screenshotTool, commentsTool, menuStatus);
+  launcher.classList.toggle('at-right', corner.endsWith('right'));
+  enabledTools = config.tools === false ? [] : ALL_TOOLS.filter(tool => (config.tools as Partial<Record<ReviewTool, boolean>> | undefined)?.[tool] !== false);
+  if (!enabledTools.includes('console')) uninstallConsoleCapture();
+  // The control: a "Feedback & tools" row that unfolds the tools inside the same border. The
+  // tools sit on the side away from the edge, so the row itself never moves.
+  const dock = el('div'); dock.className = 'dock';
+  menu = el('div'); menu.className = 'dock-tools'; menu.hidden = true;
+  menu.setAttribute('role', 'group'); menu.setAttribute('aria-label', 'Feedback & tools');
+  mark = button('', () => setMenu(menu.hidden));
+  mark.className = 'dock-head'; mark.setAttribute('aria-expanded', 'false');
+  const label = el('span', 'Feedback & tools'); label.className = 'dock-label';
+  mark.append(svgIcon(feedbackIcon), label, chevron());
+  const tool = (name: string, icon: string[], action: () => void | Promise<void>, toggle = false) => {
+    const node = button(name, action); node.className = 'tool';
+    node.prepend(svgIcon(icon));
+    if (toggle) { node.setAttribute('aria-pressed', 'false'); const state = el('span', 'Off'); state.className = 'tool-state'; node.append(state); }
+    menu.append(node);
+    return node;
+  };
+  toolButtons = {};
+  if (enabledTools.includes('screenshot')) toolButtons.screenshot = tool('Screenshot', cameraIcon, () => { setMenu(false); void openScreenshot().catch(captureError); });
+  if (enabledTools.includes('comment')) toolButtons.comment = tool('Comment', commentIcon, () => { setMenu(false); void openComment().catch(captureError); });
+  if (enabledTools.includes('console')) toolButtons.console = tool('Console', terminalIcon, () => setToolPanel('console', !consolePanel, true), true);
+  if (enabledTools.includes('performance')) toolButtons.performance = tool('Performance', activityIcon, () => setToolPanel('performance', !performancePanel, true), true);
   menu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); setMenu(false); mark.focus(); } });
   if (config.prototypeUrl) {
     const link = el('a', 'Open on Prototir') as HTMLAnchorElement;
     try {
       const url = new URL(config.prototypeUrl);
       if (url.protocol !== 'https:' && url.hostname !== 'localhost') throw new Error('unsupported');
-      link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer';
-      link.setAttribute('role','menuitem');
+      link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; link.className = 'tool';
       menu.append(link);
     } catch { /* A malformed link is simply not offered. */ }
   }
-  // Anchored to the mark: opens downward from a top corner, upward from a bottom one.
-  menu.style.setProperty('--ptr-menu-origin', atTop ? 'top center' : 'bottom center');
-  menu.style.setProperty('--ptr-menu-shift', atTop ? '-8px' : '8px');
-  menu.style.setProperty(atTop ? 'top' : 'bottom', 'calc(100% + 8px)');
-  menu.style.setProperty(corner.endsWith('left') ? 'left' : 'right', '0');
-  launcher.append(atTop ? mark : menu, atTop ? menu : mark);
+  dock.append(atTop ? mark : menu, atTop ? menu : mark);
+  launcher.append(dock);
   panel = el('section'); panel.className = 'panel'; panel.hidden = true; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label','Screenshot feedback');
   const close = button('', () => show(false)); close.className = 'panel-close';
   close.setAttribute('aria-label', 'Close feedback'); close.title = 'Close feedback';
@@ -648,7 +879,9 @@ function enable(config: ReviewOptions) {
     };
   });
   input_ = el('textarea'); input_.maxLength = 2000;
-  const inputLabel = el('label','Comment'); inputLabel.append(input_); panel.append(inputLabel);
+  const inputLabel = el('label','Your message (required)'); inputLabel.append(input_); panel.append(inputLabel);
+  input_.required = true;
+  attachmentNote = el('p'); attachmentNote.className = 'attachment-note'; attachmentNote.hidden = true; panel.append(attachmentNote);
   saveButton = button('Save screenshot comment', save); saveButton.className = 'review-submit'; panel.append(saveButton);
   pairingPanel = el('div'); pairingPanel.className = 'pairing'; pairingPanel.hidden = true;
   pairingPanel.setAttribute('role', 'status'); panel.append(pairingPanel);
@@ -656,10 +889,13 @@ function enable(config: ReviewOptions) {
   list = el('div'); panel.append(list); root.append(launcher,panel);
   selectTool = tool => {
     const files = tool === 'files' && !online;
-    panelTitle.textContent = files ? 'Review files' : 'Screenshot feedback';
+    panelTitle.textContent = files ? 'Review files' : commentMode ? 'Comment' : 'Screenshot feedback';
+    panel.classList.toggle('compact', commentMode && !files);
     bar.hidden = !files; authorLabel.hidden = !files; list.hidden = !files;
-    frame.hidden = files; contextDetails.hidden = files; inputLabel.hidden = files;
+    frame.hidden = files || commentMode; contextDetails.hidden = files || commentMode; inputLabel.hidden = files;
     saveButton.hidden = files; fallbackAttach.hidden = true;
+    saveButton.textContent = online || connected() ? 'Post comment' : 'Save screenshot comment';
+    showAttachment();
   };
   selectTool('screenshot');
   // Do not let game keyboard handlers consume review text.
@@ -682,7 +918,7 @@ function enable(config: ReviewOptions) {
   // Off Prototir the build's own call is the last word. On Prototir the dashboard wins, so a
   // creator can switch feedback off live without shipping a new build.
   applyLauncher(config.launcher ?? 'auto', false);
-  if (hostOrigin && window.parent !== window) void send('hello').then((value: { mode?: string; launcher?: string; composer?: string; composerOpen?: boolean } | undefined) => {
+  if (hostOrigin && window.parent !== window) void send('hello', { tools: enabledTools }).then((value: { mode?: string; launcher?: string; composer?: string; composerOpen?: boolean } | undefined) => {
     if (token !== generation) return;
     if (value?.mode === 'disabled') { disable(); return; }
     online = true; hostComposer = value?.composer === 'host';
@@ -697,7 +933,6 @@ function enable(config: ReviewOptions) {
     const hostTheme = sanitizeTheme((value as { theme?: unknown } | undefined)?.theme);
     if (Object.keys(hostTheme).length) style.textContent = themeCss(config.theme ?? 'auto', hostTheme) + baseCss;
     applyLauncher(config.launcher ?? 'auto', value?.launcher !== 'sdk');
-    commentsTool.textContent = 'Comments'; toolIcon(commentsTool, commentsIcon); commentsTool.hidden = false;
     message('Screenshot comments are visible to everyone who can access this prototype.');
   }).catch(() => message('Local review mode. Save a file to share feedback.'));
 }
@@ -712,6 +947,7 @@ function disable() {
   if (opened || hostOpened) options?.onOpenChange?.(false);
   if (typeof window !== 'undefined') window.removeEventListener('message',receive);
   for (const request of requests.values()) { clearTimeout(request.timer); request.reject(new Error('Review closed.')); }
+  closeConsolePanel(); closePerformancePanel(); toolStack = null;
   requests.clear(); host?.remove(); options = null; online = false; hostComposer = false; hostOpened = false; opened = false; image = ''; editing = null; fileHandle = null; dirty = false; busy = false;
 }
 export type ReviewEvent = 'open' | 'close' | 'submit' | 'error';
@@ -779,6 +1015,15 @@ export const review = {
    * a rendered diff); without it the current view is captured.
    */
   compose: async (input: { text?: string; context?: string; image?: string } = {}) => openScreenshot(input),
+
+  /** Opens a comment without a screenshot. */
+  comment: async () => openComment(),
+
+  /** Shows or hides the Console or Performance panel. */
+  tool: (tool: 'console' | 'performance', on: boolean) => setToolPanel(tool, on, true),
+
+  /** The recorded console as plain text (the last ~300 entries). */
+  consoleText: () => consoleText(),
 
   /** Subscribes to overlay events. Returns an unsubscribe function. */
   on: (event: ReviewEvent, handler: (detail?: unknown) => void) => {
