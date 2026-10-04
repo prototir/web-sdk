@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - 2026-10-04
 
 - **Feedback & tools.** One bordered control whose tools unfold inside it (no floating menu):
   Screenshot, Comment (text only), Console and Performance.
