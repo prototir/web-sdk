@@ -185,6 +185,12 @@ function setMenu(open: boolean) {
  * has said it renders the control itself, which it does so the entry point sits with Restart
  * and Fullscreen rather than floating separately over the same view.
  */
+/** Feedback reaches Prototir: hosted there (the player answered hello), or a self-hosted build
+ *  given the API and its prototype, which posts through pairing. */
+function connected(): boolean {
+  return online || Boolean(options?.apiBase && options?.slug);
+}
+
 /** Lucide's chevron-down, the accordion icon the website uses; CSS turns it to match the menu. */
 function chevron(): SVGSVGElement {
   const ns = 'http://www.w3.org/2000/svg';
@@ -199,7 +205,9 @@ function chevron(): SVGSVGElement {
 
 function applyLauncher(mode: 'auto' | 'watermark' | 'host', hostClaims: boolean) {
   if (!launcher) return;
-  const hidden = mode === 'host' || (mode === 'auto' && hostClaims);
+  // Offline review files (the local document you save and import) are paused as a product
+  // decision (2026-10-04, PLAN): without a way to reach Prototir, no feedback is offered at all.
+  const hidden = !connected() || mode === 'host' || (mode === 'auto' && hostClaims);
   launcher.hidden = hidden;
   if (hidden) setMenu(false);
 }
@@ -527,6 +535,8 @@ function enable(config: ReviewOptions) {
   });
   screenshotTool.setAttribute('role','menuitem'); commentsTool.setAttribute('role','menuitem');
   toolIcon(screenshotTool, cameraIcon); toolIcon(commentsTool, filesIcon);
+  // Hidden until hosted, where it becomes Comments: offline review files are paused (see applyLauncher).
+  commentsTool.hidden = true;
   menu.append(screenshotTool, commentsTool, menuStatus);
   menu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); setMenu(false); mark.focus(); } });
   if (config.prototypeUrl) {
@@ -687,7 +697,7 @@ function enable(config: ReviewOptions) {
     const hostTheme = sanitizeTheme((value as { theme?: unknown } | undefined)?.theme);
     if (Object.keys(hostTheme).length) style.textContent = themeCss(config.theme ?? 'auto', hostTheme) + baseCss;
     applyLauncher(config.launcher ?? 'auto', value?.launcher !== 'sdk');
-    commentsTool.textContent = 'Comments'; toolIcon(commentsTool, commentsIcon);
+    commentsTool.textContent = 'Comments'; toolIcon(commentsTool, commentsIcon); commentsTool.hidden = false;
     message('Screenshot comments are visible to everyone who can access this prototype.');
   }).catch(() => message('Local review mode. Save a file to share feedback.'));
 }
@@ -751,7 +761,7 @@ if (typeof window !== 'undefined') {
 
 export const review = {
   enable, disable,
-  open: () => { if (options) { if (hostComposer) void openScreenshot().catch(captureError); else { selectTool('screenshot'); show(true); } } },
+  open: () => { if (options && connected()) { if (hostComposer) void openScreenshot().catch(captureError); else { selectTool('screenshot'); show(true); } } },
   importDocument,
   exportDocument: () => JSON.stringify(parseReviewDocument(JSON.stringify(doc))),
   /** Engine adapters can submit an end-of-frame screenshot without JS evaluation. */
@@ -761,7 +771,7 @@ export const review = {
    * Takes a screenshot now and opens the composer. Bind it to a key, or call it the moment the
    * game notices its own failure, so a tester is handed a report instead of having to file one.
    */
-  capture: async () => openScreenshot(),
+  capture: async () => { if (connected()) await openScreenshot(); },
 
   /**
    * Opens the composer already filled in. `image` accepts a PNG/JPEG/WebP data URL for cases

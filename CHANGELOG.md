@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Feedback is offered only where it reaches Prototir: hosted on Prototir, or a self-hosted build
+  given `apiBase` and `slug`. Without either, the button, `review.open()` and `review.capture()`
+  do nothing, and "Review files" (offline review documents) is no longer offered. Offline review
+  files are paused, not removed.
 - The feedback button now uses the colours of the Prototir badge (raised surface and border)
   instead of accent blue, and an accordion chevron in place of the plain square: it points the way
   the menu opens and turns around while it is open.
