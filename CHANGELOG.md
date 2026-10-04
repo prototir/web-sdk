@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- The feedback button now looks like the Prototir badge: the Prototir mark in its square, the
-  raised surface and border of the website's badge, instead of the accent-blue button with a plain
-  square. It follows light and dark like the website's logo.
+- The feedback button now uses the colours of the Prototir badge (raised surface and border)
+  instead of accent blue, and an accordion chevron in place of the plain square: it points the way
+  the menu opens and turns around while it is open.
 - The bundled theme matches the website's current palette again (the theme check had caught it
   drifting after the website's palette update).
 
