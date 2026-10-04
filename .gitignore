@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .cdn-dist/
+.cdn-channel/
 *.tsbuildinfo
 .DS_Store
 *.zip

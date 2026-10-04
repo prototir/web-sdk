@@ -2,6 +2,11 @@
 
 ## 0.3.0 - 2026-10-04
 
+- **Staying current.** Prototypes on Prototir already load the current SDK from `/prototir.js`.
+  For builds hosted elsewhere, `https://cdn.prototir.com/sdk/v0/prototir.js` now follows the newest
+  0.x release within minutes; the versioned addresses stay pinned and immutable. On Prototir, the
+  copy that Unity and Godot web exports bundle is also replaced with the current SDK, so their
+  testers get new tools without the build being exported again.
 - **Feedback & tools.** One bordered control whose tools unfold inside it (no floating menu):
   Screenshot, Comment (text only), Console and Performance.
   - Console records from load (the last 300 messages and uncaught errors, formatted cheaply).

@@ -32,9 +32,25 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:cdn
+      # A published version is immutable: browsers and SRI digests hold on to it for a year. A push
+      # that changes src/ without bumping the version would otherwise overwrite it in place, so an
+      # existing version is left alone and the push says so.
       - name: Upload immutable SDK release
         if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if aws s3 ls "s3://${R2_BUCKET}/sdk/v${version}/prototir.js" --endpoint-url "${R2_ENDPOINT}" >/dev/null 2>&1; then
+            echo "::warning::SDK v${version} is already published and immutable; bump the version to release these changes."
+            echo "SKIP_CHANNEL=1" >> "$GITHUB_ENV"
+          else
+            aws s3 sync .cdn-dist/sdk "s3://${R2_BUCKET}/sdk" --endpoint-url "${R2_ENDPOINT}" --cache-control "public,max-age=31536000,immutable"
+          fi
+
+      # The moving channel (/sdk/v0/) follows the release just uploaded, with a short cache so
+      # builds that use it pick up a new version within minutes.
+      - name: Update the moving channel
+        if: ${{ env.AWS_ACCESS_KEY_ID != '' && env.AWS_SECRET_ACCESS_KEY != '' && env.SKIP_CHANNEL != '1' }}
         run: >-
-          aws s3 sync .cdn-dist/sdk s3://${R2_BUCKET}/sdk
+          aws s3 sync .cdn-channel/sdk s3://${R2_BUCKET}/sdk
           --endpoint-url "${R2_ENDPOINT}"
-          --cache-control "public,max-age=31536000,immutable"
+          --cache-control "public,max-age=300"
