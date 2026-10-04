@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- The feedback button now looks like the Prototir badge: the Prototir mark in its square, the
+  raised surface and border of the website's badge, instead of the accent-blue button with a plain
+  square. It follows light and dark like the website's logo.
+- The bundled theme matches the website's current palette again (the theme check had caught it
+  drifting after the website's palette update).
+
 ## 0.2.8 - 2026-09-28
 
 - Hosted captures open one Prototir-owned composer for the pin, context and comment. Posting, sign-in and draft recovery stay on the host; SDK open/close hooks still let a game pause.

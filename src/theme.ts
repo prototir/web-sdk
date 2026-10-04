@@ -24,27 +24,27 @@ export interface ReviewTheme {
 }
 
 export const LIGHT_THEME: ReviewTheme = {
-	background: '#ffffff',
-	surface: '#f7f7f8',
+	background: '#f7f6f3',
+	surface: '#efede8',
 	surfaceRaised: '#ffffff',
-	ink: '#111113',
-	muted: '#60606a',
-	line: '#e2e2e6',
-	lineStrong: '#b8b8c1',
+	ink: '#050505',
+	muted: '#3f3e3a',
+	line: '#e2dfd8',
+	lineStrong: '#8f8c84',
 	accent: '#2563eb',
 	accentInk: '#ffffff'
 };
 
 export const DARK_THEME: ReviewTheme = {
-	background: '#0f0f11',
-	surface: '#18181b',
-	surfaceRaised: '#202024',
-	ink: '#f4f4f5',
-	muted: '#a1a1aa',
-	line: '#303036',
-	lineStrong: '#52525b',
+	background: '#18181b',
+	surface: '#202024',
+	surfaceRaised: '#27272c',
+	ink: '#f5f4f1',
+	muted: '#bbb9b3',
+	line: '#36363c',
+	lineStrong: '#6a6a73',
 	accent: '#60a5fa',
-	accentInk: '#0f0f11'
+	accentInk: '#18181b'
 };
 
 const VARIABLE_BY_KEY: Record<keyof ReviewTheme, string> = {

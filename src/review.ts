@@ -185,6 +185,31 @@ function setMenu(open: boolean) {
  * has said it renders the control itself, which it does so the entry point sits with Restart
  * and Fullscreen rather than floating separately over the same view.
  */
+/** The Prototir mark (the website's logo), drawn with the overlay's theme colours: the outline and
+ *  the solid half in the ink colour, the stripes in the accent. */
+function prototirLogo(): SVGSVGElement {
+  const ns = 'http://www.w3.org/2000/svg';
+  const node = <K extends keyof SVGElementTagNameMap>(tag: K, attributes: Record<string, string>) => {
+    const element = document.createElementNS(ns, tag);
+    for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+    return element;
+  };
+  const svg = node('svg', { viewBox: '58 58 462 462', fill: 'none', class: 'mark-logo', 'aria-hidden': 'true' });
+  const clip = node('clipPath', { id: 'ptr-logo-inner' });
+  clip.append(node('rect', { x: '73.6863', y: '301', width: '300', height: '300', rx: '15', transform: 'rotate(-45 65.6863 293)' }));
+  const defs = node('defs', {}); defs.append(clip);
+  const stripes = node('g', { 'clip-path': 'url(#ptr-logo-inner)' });
+  for (const [x1, y1, x2, y2] of [['-21.967', '498.033', '498.033', '-21.967'], ['31.066', '551.066', '551.066', '31.066'], ['84.099', '604.099', '604.099', '84.099']])
+    stripes.append(node('line', { x1, y1, x2, y2, 'stroke-width': '12', style: 'stroke:var(--ptr-accent)' }));
+  svg.append(
+    defs,
+    node('rect', { x: '65.6863', y: '293', width: '316', height: '316', rx: '23', transform: 'rotate(-45 65.6863 293)', 'stroke-width': '16', style: 'stroke:var(--ptr-ink)' }),
+    stripes,
+    node('path', { d: 'M73 292.132L289.132 75.9998V292.132V508.264L73 292.132Z', style: 'fill:var(--ptr-ink)' })
+  );
+  return svg;
+}
+
 function applyLauncher(mode: 'auto' | 'watermark' | 'host', hostClaims: boolean) {
   if (!launcher) return;
   const hidden = mode === 'host' || (mode === 'auto' && hostClaims);
@@ -438,9 +463,9 @@ function enable(config: ReviewOptions) {
     button{font:inherit;border:1px solid var(--ptr-line-strong);background:var(--ptr-surface-raised);color:var(--ptr-ink);border-radius:8px;padding:9px 12px;cursor:pointer}
     button:hover{background:var(--ptr-surface)}button:disabled{opacity:.5;cursor:wait}button:focus-visible,input:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--ptr-accent);outline-offset:2px}
     .launcher{position:absolute;pointer-events:auto;display:flex;flex-direction:column;align-items:stretch}
-    .mark{display:inline-flex;align-items:center;gap:8px;background:var(--ptr-accent);color:var(--ptr-accent-ink);box-shadow:0 3px 20px #0004;border-color:var(--ptr-accent)}
-    .mark:hover{background:var(--ptr-accent);filter:brightness(1.08)}
-    .mark-dot{width:18px;height:18px;border-radius:6px;background:var(--ptr-accent-ink);opacity:.9;flex:none}
+    .mark{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:4px 14px 4px 6px;border-radius:999px;background:var(--ptr-surface-raised);color:var(--ptr-muted);border-color:var(--ptr-line-strong);box-shadow:0 3px 20px #0003;font-weight:600}
+    .mark:hover{background:var(--ptr-surface-raised);color:var(--ptr-ink);border-color:var(--ptr-ink)}
+    .mark-logo{width:30px;height:30px;flex:none;transition:transform .3s}.mark:hover .mark-logo{transform:scale(1.05)}
     .menu{position:absolute;width:min(230px,calc(100vw - 16px));display:flex;flex-direction:column;gap:6px;background:var(--ptr-background);border:1px solid var(--ptr-line);border-radius:12px;padding:8px;box-shadow:0 12px 40px #0005;transform-origin:var(--ptr-menu-origin);transition:transform 160ms cubic-bezier(.2,.8,.3,1),opacity 120ms ease}
     /* Grows out of the mark, away from the edge it sits on, so the trigger never moves and the
        motion reads as the panel unfolding from the badge rather than appearing over the game. */
@@ -498,8 +523,7 @@ function enable(config: ReviewOptions) {
   mark = button('Feedback', () => setMenu(menu.hidden));
   mark.className = 'mark'; mark.setAttribute('aria-haspopup', 'menu');
   mark.setAttribute('aria-expanded', 'false');
-  const dot = el('span'); dot.className = 'mark-dot'; dot.setAttribute('aria-hidden', 'true');
-  mark.prepend(dot);
+  mark.prepend(prototirLogo());
   const screenshotTool = button('Screenshot', () => { setMenu(false); void openScreenshot().catch(captureError); });
   const menuStatus = el('small'); menuStatus.hidden = true; menuStatus.setAttribute('role','status');
   const commentsTool = button('Review files', async () => {
