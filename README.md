@@ -1,32 +1,35 @@
 # Prototir Web SDK
 
-The official browser SDK for prototypes hosted on [Prototir](https://prototir.com). It provides a
-small, typed API for lifecycle signals, analytics events, scores, persistent storage, managed text
-generation, and deterministic random numbers.
+The official browser SDK for [Prototir](https://prototir.com), where creators publish playable
+prototypes and testers play them and leave feedback. A small, typed API for lifecycle signals,
+analytics events, scores, persistent storage, managed text generation and deterministic random
+numbers, plus **Feedback & tools**: Screenshot, Comment, Console and Performance for your testers,
+with nothing for you to write.
 
-Prototypes run in a sandboxed iframe. The SDK communicates only with the parent Prototir player by
-using a versioned `postMessage` protocol; it does not contain credentials or contact external APIs.
+Prototypes run in a sandboxed iframe. The SDK talks only to the Prototir player, over a versioned
+`postMessage` protocol; it holds no credentials and calls no external service of its own.
 
 ## Add the SDK
 
-For a plain HTML bundle, include the immutable CDN build before your application script:
+On Prototir, load it from the player's own path, before your application script:
 
 ```html
-<script src="https://cdn.prototir.com/sdk/v0.2.0/prototir.js"></script>
+<script src="/prototir.js"></script>
 <script src="app.js"></script>
 ```
 
-For a TypeScript or bundled project, install the package after it is published to npm:
+Prototir serves the current SDK from `/prototir.js`, so a published prototype gets new versions,
+including new testing tools, without being uploaded again.
 
-```bash
-npm install @prototir/web-sdk
-```
+Hosting the build yourself? Use the CDN:
 
-```ts
-import { Prototir } from '@prototir/web-sdk';
-```
+| Address | Behaviour |
+| --- | --- |
+| `https://cdn.prototir.com/sdk/v0/prototir.js` | Follows the newest 0.x release within minutes. |
+| `https://cdn.prototir.com/sdk/v0.3.0/prototir.js` | Pinned and immutable; never changes. |
 
-Until the npm release is available, use the CDN build or install a tagged GitHub release.
+Each pinned release also has a `manifest.json` with SHA-384 digests for Subresource Integrity. An npm
+package (`@prototir/web-sdk`) is planned; until then, use the CDN or a tagged GitHub release.
 
 ## Basic use
 
@@ -44,9 +47,9 @@ const quest = await Prototir.ai.generate({
 });
 ```
 
-Call `ready()` when the prototype is genuinely interactive, not while it is still displaying a
-loader. Event names are normalized to lowercase and must contain 1-64 letters, numbers, `_`, `.`,
-`:`, or `-`. Keep event payloads small and free of personal data.
+Call `ready()` when the prototype is genuinely interactive, not while it is still showing a loader.
+Event names are normalized to lowercase and must contain 1-64 letters, numbers, `_`, `.`, `:` or
+`-`. Keep event payloads small and free of personal data.
 
 ## API
 
@@ -60,26 +63,98 @@ loader. Event names are normalized to lowercase and must contain 1-64 letters, n
 | `storage.remove(key)` | Removes a stored value. |
 | `ai.generate(options)` | Requests provider-neutral managed text generation. |
 | `rng(seed?)` | Creates a deterministic local random-number function. |
-| `review.enable(options)` | Shows the floating feedback button and screenshot annotation panel. |
-| `review.disable()` | Removes the overlay and cancels pending requests. |
-| `review.open()` | Opens the panel from your own UI, for example a pause menu. |
-| `review.importDocument(text)` | Loads a `.prototir-review.json` file a tester sent you. |
-| `review.exportDocument()` | Returns the current review as JSON text. |
-| `review.attach(dataUrl)` | Supplies a screenshot captured by an engine and opens the panel. |
+| `review.enable(options)` | Configures Feedback & tools (on Prototir it is already on; see below). |
+| `review.disable()` | Removes the control and cancels pending requests. |
+| `review.open()` | Opens screenshot feedback from your own UI, for example a pause menu. |
 | `review.capture()` | Takes a screenshot now and opens the composer. |
-| `review.compose(input)` | Opens the composer prefilled with text, context, or an image. |
+| `review.compose(input)` | Opens the composer prefilled with text, context or an image. |
+| `review.comment()` | Opens a comment with no screenshot. |
+| `review.tool(name, on)` | Opens or closes the `console` or `performance` panel. |
+| `review.consoleText()` | The console recorded since load, one line per entry. |
 | `review.on(event, handler)` | Subscribes to `open`, `close`, `submit`, `error`. Returns an unsubscribe. |
 
-Storage keys may contain up to 128 characters. Each value is limited to 64 KiB of UTF-8 data. A
-prototype does not need—and should never contain—service credentials. Managed AI routing,
-moderation, and allowance enforcement are handled by Prototir. Enable AI in `prototir.json` with
-`"ai": { "mode": "managed" }` and handle rejected requests by their `{ code, message }` value.
+Storage keys may contain up to 128 characters, and each value up to 64 KiB of UTF-8. A prototype
+never needs service credentials: managed AI routing, moderation and allowances are handled by
+Prototir. Enable AI in `prototir.json` with `"ai": { "mode": "managed" }` and handle rejected
+requests by their `{ code, message }` value.
+
+## Feedback & tools
+
+Testers get one **Feedback & tools** control. Its tools unfold inside the same border:
+
+- **Screenshot** captures the moment; the tester places a pin and writes what they mean.
+- **Comment** is a plain comment on the prototype.
+- **Console** is recorded from load (the last 300 messages and uncaught errors). Testers can copy it
+  or attach it to a comment, where it shows collapsed.
+- **Performance** charts frame rate, slowest frame and memory, and runs only while open. A summary
+  can be copied or attached.
+
+A screenshot, log or summary is always sent with a message: it is what the comment is about, never
+a comment on its own. Comments follow the prototype's ordinary moderation and comment settings, and
+turning comments off for a prototype turns feedback off with it.
+
+### Where the control appears
+
+On Prototir the player draws it: beside Restart and Fullscreen, or inside the Prototir badge in
+embeds. The SDK stays out of the way and drives the tools inside your frame. Feedback is on by
+default; the player tells the SDK which prototype it is showing, so there is nothing to call.
+
+Hosted anywhere else, the SDK draws the control itself, bottom-left by default, once you say where
+comments go:
+
+```js
+Prototir.review.enable({
+  project: 'orbit-garden',
+  apiBase: 'https://api.prototir.com/api',
+  slug: 'orbit-garden',         // the prototype's slug on Prototir
+  corner: 'bottom-left',        // also bottom-right, top-left, top-right
+  offset: 16,                   // pixels from the corner, to clear your own controls
+  onOpenChange: (open) => setPaused(open)
+});
+```
+
+The first post asks the tester to approve the build at prototir.com/link; comments then post as
+that account. Without `apiBase` and `slug`, a self-hosted build shows no feedback control, because
+comments would have nowhere to go.
+
+### Choosing tools
+
+Every tool is on by default. Switch any of them off, or pass `false` for none:
+
+```js
+Prototir.review.enable({ project: 'orbit-garden', tools: { console: false, performance: false } });
+```
+
+Console recording starts when the SDK loads, so turning the Console off also stops the recording.
+
+### Driving it from your game
+
+```js
+review.capture();                          // screenshot now, open the composer
+review.compose({                           // or hand the tester a report already written
+  text: 'Stuck here.',
+  context: `gate 3, seed ${seed}`
+});
+review.on('submit', () => resumeGame());   // also 'open', 'close', 'error'
+```
+
+`compose` accepts an `image` data URL when your game has a better frame than a live capture: the
+frame before a crash, or a rendered diff. Without a `capture` option the SDK grabs the first
+`<canvas>` on the next animation frame. Supply `capture` for an exact frame, a WebGL context created
+without `preserveDrawingBuffer`, or a page that is not canvas-based; return a `Blob` or a
+PNG/JPEG/WebP data URL. Screenshots are resized to 1280px on the long edge and sent as JPEG.
+
+Use `context: () => ...` to record what a screenshot alone cannot: level, seed, elapsed time,
+build. A pin on a procedurally generated scene is only reproducible if you write down what
+generated it.
+
+The panels follow the player's light/dark preference; pass `theme: 'light'` or `'dark'` to pin it.
+Prototir's colours are bundled, so they look right inside a sandboxed frame with no network.
 
 ## Pointer lock and Escape
 
-Pointer lock is a browser API and does not require an SDK method. Request it from a player action,
-read mouse deltas only while the canvas is locked, and pause or show a resume action when Escape
-releases the lock:
+Pointer lock is a browser API and needs no SDK method. Request it from a player action, read mouse
+deltas only while the canvas is locked, and pause or show a resume action when Escape releases it:
 
 ```js
 const canvas = document.querySelector('canvas');
@@ -94,100 +169,12 @@ document.addEventListener('pointerlockchange', () => {
 });
 ```
 
-Do not imitate pointer lock with `cursor: none`; that only hides the cursor. Games may disable text
-selection in their own CSS with `user-select: none`, but the platform leaves selection enabled so
-non-game prototypes remain accessible.
-
-## Screenshot feedback
-
-Review mode gives testers a floating button that captures the current view, lets them drop a pin on
-that screenshot and write a comment. It is opt-in, and it works both on Prototir and on a prototype
-you host yourself.
-
-```js
-Prototir.review.enable({
-  project: 'orbit-garden',   // stable ID; reviews from other projects are refused
-  build: 'v1.4.0',           // shown with imported feedback
-  corner: 'bottom-left',     // default; also top-left, top-right, bottom-right
-  offset: 16,                // pixels from the corner, for clearing your own controls
-  capture: async () => renderer.domElement.toDataURL('image/png'),
-  context: () => `level ${level}, seed ${seed}`,
-  onOpenChange: (open) => setPaused(open)
-});
-```
-
-### Where the button appears
-
-By default the SDK decides for you. Inside the Prototir player, Prototir draws **Feedback** in its
-own control bar beside Restart and Fullscreen, and the SDK stays out of the way. Feedback opens
-an icon menu with **Screenshot** and **Comments**. Anywhere else the SDK shows the Prototir mark:
-its menu offers **Screenshot** and **Review files** offline, or **Screenshot** and **Comments** when
-connected to Prototir. **Open on Prototir** appears when you supply `prototypeUrl`. Choosing
-Screenshot captures the current view and opens only the screenshot composer. If capture fails,
-the tester can attach an image instead.
-
-Set `launcher: 'watermark'` to always show the mark, or `launcher: 'host'` to draw nothing and call
-`review.open()` from your own UI.
-
-The panel follows the player's light/dark preference. Pass `theme: 'light'` or `'dark'` to pin it.
-Prototir's own colours are bundled, so the panel looks right offline and inside a sandboxed frame
-with no network access.
-
-### Driving it from your game
-
-The one-line setup is enough for most prototypes. When you want the game itself to raise feedback:
-
-```js
-review.capture();                          // screenshot now, open the composer
-review.compose({                           // or hand the tester a report already written
-  text: 'Stuck here.',
-  context: `gate 3, seed ${seed}`
-});
-review.on('submit', () => resumeGame());   // also 'open', 'close', 'error'
-```
-
-`compose` accepts an `image` data URL when your game has a better frame than a live capture would
-give: the frame before a crash, or a rendered diff. The case this exists for is a game noticing its
-own failure and filing the report itself, which is feedback nobody would have written by hand.
-
-Without `capture`, the SDK grabs the first `<canvas>` on the next animation frame. Supply `capture`
-whenever you need an exact frame, a WebGL context created without `preserveDrawingBuffer`, or a page
-that is not canvas-based. Return a `Blob` or a PNG/JPEG/WebP data URL. Screenshots are resized to
-1280px on the long edge and re-encoded as JPEG before they leave the browser.
-
-Use `context` to record what a screenshot alone cannot: level, seed, elapsed time, build. A pin on a
-procedurally generated scene is only reproducible if you write down what generated it.
-
-### On Prototir and off it
-
-Inside the Prototir player the panel posts to the prototype's ordinary comment section, so screenshot
-feedback sits with every other comment and follows the same moderation and creator wall controls.
-Prototir shows its own confirmation dialog, with the image, before anything is posted under the
-tester's account: an embedded experience cannot post on its own.
-
-Hosted anywhere else, the panel keeps the review in the browser and in a file. Under **Review
-files**, **Save review file** writes `feedback.prototir-review.json`, which the tester sends you and
-you reload with **Import review**. Where the browser supports it the same file is reopened and
-saved in place; elsewhere it downloads a fresh copy. Drafts are also kept in IndexedDB per project
-and build, so a reload does not lose work, but a file is the only durable copy.
-
-The document holds the screenshots, pins, comments, replies and resolved state. It is data only:
-images must be inline PNG/JPEG/WebP data URLs, so an imported review can never fetch a remote URL or
-carry markup. Author names in a file come from the tester and are unverified.
-
-Limits: 100 screenshots per review, 100 replies per screenshot, 2000 characters per comment, 8 MiB
-per file.
-
-### Team cloud reviews
-
-Pass `cloudUrl` to add a **Team cloud** button linking to a shared review workspace, where a paid
-team imports a file once and then opens and saves it without passing files around. Saves are checked
-against a revision so one teammate cannot silently overwrite another.
+Do not imitate pointer lock with `cursor: none`; that only hides the cursor.
 
 ## Protocol and security model
 
-`src/protocol.ts` defines protocol version 1. Because the iframe intentionally has an opaque
-origin, the player validates messages by frame identity. The player supplies its origin through the
+`src/protocol.ts` defines protocol version 1. Because the iframe intentionally has an opaque origin,
+the player validates messages by frame identity. The player supplies its origin through the
 `prototir_origin` URL parameter so replies can use a specific target origin. The SDK accepts host
 messages only from `window.parent` and only when their source and protocol version match.
 
@@ -201,18 +188,21 @@ npm run check
 npm run build:cdn
 ```
 
-`npm run build` produces an IIFE build, an ES module, declarations, and source maps in `dist`.
-`npm run build:cdn` creates a versioned CDN directory and SHA-384 integrity manifest in `.cdn-dist`.
-Runnable starter projects live in the
-[web-examples repository](https://github.com/prototir/web-examples).
+`npm run build` produces an IIFE build, an ES module, declarations and source maps in `dist`.
+`npm run sync:review` copies the build into the Prototir player and the Unity and Godot SDKs, which
+bundle it for their web exports.
 
-See the [creator documentation](https://prototir.com/docs/creators?runtime=web#setup) for bundle and
+### Releasing
+
+Bump `version` in `package.json` and `CHANGELOG.md`, then push to `main`. The deploy uploads
+`sdk/vX.Y.Z/` (immutable) and refreshes the `sdk/v0/` channel. A version that is already on the CDN
+is never overwritten: the deploy skips it with a warning, so bump the version to release changes.
+Then tag `vX.Y.Z` and publish a GitHub release.
+
+Runnable starter projects live in [web-examples](https://github.com/prototir/web-examples). See the
+[creator documentation](https://prototir.com/docs/creators?runtime=web#setup) for bundle and
 publishing requirements.
 
 ## License
 
 [MIT](LICENSE.md)
-
-### Hosted screenshot composer
-
-On Prototir (including fullscreen and embeds), the SDK captures the frame and opens a single host composer. The visitor places a pin, writes a comment, and explicitly posts. Closing, sign-in and failed posts keep the draft in that tab for up to two hours. Images and text pass the existing server moderation checks. Outside Prototir, the portable SDK review panel remains available.
