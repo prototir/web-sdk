@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 const destinations = [
   '../prototir-webapp/static/review-sdk/prototir.js',
   '../prototir-unity-sdk/Runtime/Review/prototir.js',
-  '../prototir-godot-sdk/addons/prototir/web/prototir.js'
+  '../prototir-godot-sdk/addons/prototir/web/prototir.js',
+  '../prototir-construct-addon/vendor/prototir.js'
 ];
 const digest = async url => createHash('sha256').update(await readFile(url)).digest('hex');
 const expected = await digest(new URL('../dist/prototir.js', import.meta.url));

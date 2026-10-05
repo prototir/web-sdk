@@ -6,7 +6,8 @@ import { createHash } from 'node:crypto';
 const destinations = [
   '../prototir-webapp/static/review-sdk/prototir.js',
   '../prototir-unity-sdk/Runtime/Review/prototir.js',
-  '../prototir-godot-sdk/addons/prototir/web/prototir.js'
+  '../prototir-godot-sdk/addons/prototir/web/prototir.js',
+  '../prototir-construct-addon/vendor/prototir.js'
 ];
 const source = new URL('../dist/prototir.js', import.meta.url);
 for (const destination of destinations) {
