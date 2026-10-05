@@ -28,8 +28,24 @@ Hosting the build yourself? Use the CDN:
 | `https://cdn.prototir.com/sdk/v0/prototir.js` | Follows the newest 0.x release within minutes. |
 | `https://cdn.prototir.com/sdk/v0.3.0/prototir.js` | Pinned and immutable; never changes. |
 
-Each pinned release also has a `manifest.json` with SHA-384 digests for Subresource Integrity. An npm
-package (`@prototir/web-sdk`) is planned; until then, use the CDN or a tagged GitHub release.
+Each pinned release also has a `manifest.json` with SHA-384 digests for Subresource Integrity.
+
+### With a bundler (npm)
+
+```bash
+npm install @prototir/web-sdk
+```
+
+```ts
+import { Prototir } from '@prototir/web-sdk';
+```
+
+Keep `<script src="/prototir.js"></script>` in your `index.html` as well. On Prototir it loads the
+current SDK, and the imported one finds it already running and uses it, so your build gets new
+testing tools without being rebuilt. Hosted elsewhere, where `/prototir.js` is absent, the copy
+bundled from npm runs instead. Types are included. See the
+[Babylon.js starter](https://github.com/prototir/web-examples/tree/main/babylon-vite-starter) for a
+complete Vite setup.
 
 ## Basic use
 

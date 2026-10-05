@@ -1,3 +1,4 @@
+import { runningInstance, isActiveCopy } from './instance';
 import { review } from './review';
 import { resolveHostOrigin } from './host-origin';
 export * from './review-document';
@@ -128,7 +129,7 @@ function validateStorageValue(value: string): string {
 	return normalized;
 }
 
-if (typeof window !== 'undefined') {
+if (isActiveCopy) {
 	window.addEventListener('message', (event: MessageEvent) => {
 		if (event.source !== window.parent || !isShellMessage(event.data)) return;
 
@@ -259,7 +260,7 @@ function rng(seed: string | number = 'prototir'): () => number {
 	};
 }
 
-export const Prototir: PrototirSdk = {
+const ownInstance: PrototirSdk = {
  review,
 	ready() {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'ready' });
@@ -305,6 +306,9 @@ declare global {
 	}
 }
 
-if (typeof window !== 'undefined') window.Prototir = Prototir;
+/** The SDK: this copy, or the copy that was already running on the page (see `instance.ts`). */
+export const Prototir: PrototirSdk = runningInstance ?? ownInstance;
+
+if (isActiveCopy) window.Prototir = ownInstance;
 
 export * from './protocol';

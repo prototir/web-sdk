@@ -1,3 +1,4 @@
+import { isActiveCopy } from './instance';
 import { resolveHostOrigin, resolveHostProject } from './host-origin';
 import { sanitizeTheme, themeCss } from './theme';
 import { awaitApproval, PairingCancelled, postComment, startPairing, storeToken, storedToken, type PairingStart } from './pairing';
@@ -167,7 +168,7 @@ const activityIcon = ['M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-
 const closePaths = ['M18 6 6 18', 'm6 6 12 12'];
 
 // From the moment the SDK loads, so an early error is already there when someone opens Console.
-if (typeof window !== 'undefined') installConsoleCapture();
+if (isActiveCopy) installConsoleCapture();
 function send(op: string, payload: unknown = {}): Promise<any> {
   if (!hostOrigin || window.parent === window) return Promise.reject(new Error('No Prototir host.'));
   const id = ++serial;
@@ -995,6 +996,7 @@ export type ReviewEvent = 'open' | 'close' | 'submit' | 'error';
  * wholesale, because `enable()` disables whatever came before it.
  */
 function enableFromHost() {
+  if (!isActiveCopy) return; // Another copy of the SDK on this page already runs feedback.
   if (options) return; // The build already asked for something specific.
   const project = resolveHostProject();
   if (!project) return; // Self-hosted, or a host that does not say. Opt-in as before.

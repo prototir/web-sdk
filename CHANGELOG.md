@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 - 2026-10-05
+
+- **Published on npm** as `@prototir/web-sdk`: `npm install @prototir/web-sdk`, then
+  `import { Prototir } from '@prototir/web-sdk'`, with TypeScript types included.
+- **A second copy defers to the first.** When the page already runs the SDK (on Prototir,
+  `/prototir.js` serves the current one), an imported or duplicate copy uses that instance instead
+  of starting its own: one console recorder, one connection to the player, and a build that
+  bundles the SDK from npm still gets new testing tools without a rebuild. Keep
+  `<script src="/prototir.js"></script>` in your `index.html` for that.
+- New starters in web-examples: Phaser, PixiJS, and Babylon.js with Vite and npm.
+
 ## 0.3.1 - 2026-10-05
 
 - **Copy works inside the Prototir player.** The Console and Performance panels' Copy buttons used
