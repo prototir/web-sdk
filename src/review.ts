@@ -104,6 +104,45 @@ const message = (text: string) => { if (status) status.textContent = text; };
 const el = <K extends keyof HTMLElementTagNameMap>(tag: K, text = '') => {
   const node = document.createElement(tag); node.textContent = text; return node;
 };
+/** Copies text from a click, inside a prototype's frame. The asynchronous clipboard API is usually
+ * blocked there: the frame is on an untrusted origin and is deliberately not granted
+ * `clipboard-write`, which would let any prototype overwrite people's clipboards. The legacy copy
+ * command still works for the click that asked for it, so it is the fallback. Resolves to whether
+ * the text was copied. */
+export async function copyText(text: string): Promise<boolean> {
+  // Asking a frame that is not allowed only earns a console violation, so check the policy first
+  // where the browser exposes it.
+  const policy = (document as Document & { permissionsPolicy?: { allowsFeature(f: string): boolean }; featurePolicy?: { allowsFeature(f: string): boolean } });
+  const allowed = (policy.permissionsPolicy ?? policy.featurePolicy)?.allowsFeature('clipboard-write') ?? true;
+  if (allowed && navigator.clipboard) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch { /* blocked after all; fall back */ }
+  }
+  const area = document.createElement('textarea');
+  area.value = text;
+  area.setAttribute('readonly', '');
+  area.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  document.body.append(area);
+  const focused = document.activeElement as HTMLElement | null;
+  area.select();
+  let copied = false;
+  try { copied = document.execCommand('copy'); } catch { copied = false; }
+  area.remove();
+  focused?.focus?.();
+  return copied;
+}
+
+/** A Copy button that says whether it worked. */
+const copyButton = (text: () => string) => {
+  const copy = button('Copy', async () => {
+    copy.textContent = (await copyText(text())) ? 'Copied' : 'Copy failed';
+    setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
+  });
+  return copy;
+};
+
 const button = (text: string, action: () => void | Promise<void>) => {
   const node = el('button', text); node.type = 'button';
   node.onclick = () => void Promise.resolve().then(action).catch(error => message(error instanceof Error ? error.message : String(error)));
@@ -289,11 +328,7 @@ function openConsolePanel() {
     if (queued) return; queued = true;
     requestAnimationFrame(() => { queued = false; if (consolePanel) render(); });
   });
-  const copy = button('Copy', async () => {
-    await navigator.clipboard.writeText(consoleText());
-    copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
-  });
-  actions.append(copy, button('Clear', () => { clearConsole(); }), button('Attach to comment', () => attach(consoleText(), 'console')));
+  actions.append(copyButton(consoleText), button('Clear', () => { clearConsole(); }), button('Attach to comment', () => attach(consoleText(), 'console')));
   body.append(lines);
   consolePanel = node; panelColumn().append(node);
 }
@@ -345,11 +380,7 @@ function openPerformancePanel() {
   stopPerformanceWatch = onPerformanceSample(draw);
   startPerformance();
   draw();
-  const copy = button('Copy', async () => {
-    await navigator.clipboard.writeText(performanceSummary());
-    copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = 'Copy'; }, 1500);
-  });
-  actions.append(copy, button('Attach to comment', () => attach(performanceSummary(), 'performance')));
+  actions.append(copyButton(performanceSummary), button('Attach to comment', () => attach(performanceSummary(), 'performance')));
   body.append(canvas, stats);
   performancePanel = node; panelColumn().append(node);
 }

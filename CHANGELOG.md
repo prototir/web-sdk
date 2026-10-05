@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 - 2026-10-05
+
+- **Copy works inside the Prototir player.** The Console and Performance panels' Copy buttons used
+  the clipboard API, which a prototype's frame is not allowed to use, so they failed with a
+  permissions-policy violation. They now fall back to the browser's copy command for the click that
+  asked for it, without warnings, and say "Copy failed" if even that is refused. The frame is
+  deliberately still not granted clipboard access, so a prototype cannot overwrite people's
+  clipboards on its own.
+
 ## 0.3.0 - 2026-10-04
 
 - **Staying current.** Prototypes on Prototir already load the current SDK from `/prototir.js`.
