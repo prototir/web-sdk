@@ -11,7 +11,10 @@ Prototypes run in a sandboxed iframe. The SDK talks only to the Prototir player,
 
 ## Add the SDK
 
-On Prototir, load it from the player's own path, before your application script:
+On Prototir you do not have to: every web build runs with the SDK. If a page does not load it,
+Prototir adds it before the page's own scripts, so Feedback & tools work with no setup and
+`window.Prototir` is ready when your code starts. Loading it yourself is harmless and looks like
+this, from the player's own path, before your application script:
 
 ```html
 <script src="/prototir.js"></script>
@@ -19,7 +22,8 @@ On Prototir, load it from the player's own path, before your application script:
 ```
 
 Prototir serves the current SDK from `/prototir.js`, so a published prototype gets new versions,
-including new testing tools, without being uploaded again.
+including new testing tools, without being uploaded again. Calls such as `Prototir.ready()`,
+`event()` and `score()` are optional: they make sessions richer, but nothing breaks without them.
 
 Hosting the build yourself? Use the CDN:
 
