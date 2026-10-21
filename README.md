@@ -98,8 +98,9 @@ never needs service credentials. AI runs either on the creator's own provider ke
 OpenAI, Anthropic, Google and others, saved encrypted in Prototir Studio and never sent to the
 browser) or on Prototir AI; routing, moderation and limits are handled by Prototir either way.
 Choose it on the prototype's page, or in `prototir.json` with `"ai": { "mode": "own-key" }` or
-`"managed"`. With your own key, pass `model` (for example `'openai/gpt-5-mini'`) to pick a model
-when the prototype's page leaves it empty; the page's choice always wins. Handle rejected
+`"managed"`. Pass `model` to pick one when the prototype's page leaves it empty (the page's choice
+always wins): any model your provider offers with your own key (`'openai/gpt-5-mini'` on
+OpenRouter), or a Prototir AI catalog model (`'gpt-6-luna'`). Handle rejected
 requests by their `{ code, message }` value.
 
 ## Feedback & tools

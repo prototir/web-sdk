@@ -21,9 +21,10 @@ export interface PrototirAiGenerateOptions {
 	/** Maximum output tokens. Prototir may lower this to fit request and allowance limits. */
 	maxTokens?: number;
 	/**
-	 * A model name, such as `openai/gpt-5-mini`, for prototypes that use their creator's own
-	 * provider key. Used only when the creator has not chosen a model in Prototir Studio; the
-	 * Studio choice always wins. Prototir AI ignores it and picks models by tier.
+	 * A model to use when the creator has not chosen one on the prototype's page; that choice
+	 * always wins. With the creator's own key it is any model their provider offers, such as
+	 * `openai/gpt-5-mini` on OpenRouter; with Prototir AI it is one of its catalog models, such as
+	 * `gpt-6-luna`.
 	 */
 	model?: string;
 	/** Override the default 30-second timeout for this call. */

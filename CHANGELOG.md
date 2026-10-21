@@ -2,10 +2,10 @@
 
 ## 0.5.0 - 2026-10-21
 
-- **`ai.generate({ model })`** for prototypes that use their creator's own provider key: names a
-  model, such as `openai/gpt-5-mini` on OpenRouter, when the prototype's page leaves the model
-  empty. The page's choice always wins, and Prototir AI ignores it. Invalid names reject with
-  `invalid_model`.
+- **`ai.generate({ model })`** names a model when the prototype's page leaves it empty; the page's
+  choice always wins. With the creator's own provider key it is any model the provider offers
+  (`openai/gpt-5-mini` on OpenRouter); with Prototir AI it is a catalog model (`gpt-6-luna`), and
+  an unknown one rejects with `unknown_model`. Invalid names reject with `invalid_model`.
 - On Prototir the SDK is now added to every web build that does not load it, so Feedback & tools
   work with no setup.
 
