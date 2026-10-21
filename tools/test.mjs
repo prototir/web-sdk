@@ -62,7 +62,22 @@ listeners[0]({
   data: { source: 'prototir', v: 1, type: 'ai:result', id: aiMessage.id, text: 'Find the beacon.' }
 });
 assert.equal(await generated, 'Find the beacon.');
+assert.equal('model' in aiMessage, false);
 await assert.rejects(sdk.ai.generate({ prompt: '' }), (error) => error.code === 'invalid_prompt');
+
+// A model travels only when the code names one, for own-key prototypes.
+const named = sdk.ai.generate({ prompt: 'A short quest', model: 'openai/gpt-5-mini' });
+const namedMessage = sent.at(-1).message;
+assert.equal(namedMessage.model, 'openai/gpt-5-mini');
+listeners[0]({
+  source: parent,
+  data: { source: 'prototir', v: 1, type: 'ai:result', id: namedMessage.id, text: 'ok' }
+});
+assert.equal(await named, 'ok');
+await assert.rejects(
+  sdk.ai.generate({ prompt: 'x', model: 'gpt 5; drop' }),
+  (error) => error.code === 'invalid_model'
+);
 
 const firstGenerator = sdk.rng('daily');
 const secondGenerator = sdk.rng('daily');

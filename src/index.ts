@@ -20,6 +20,12 @@ export interface PrototirAiGenerateOptions {
 	prompt: string;
 	/** Maximum output tokens. Prototir may lower this to fit request and allowance limits. */
 	maxTokens?: number;
+	/**
+	 * A model name, such as `openai/gpt-5-mini`, for prototypes that use their creator's own
+	 * provider key. Used only when the creator has not chosen a model in Prototir Studio; the
+	 * Studio choice always wins. Prototir AI ignores it and picks models by tier.
+	 */
+	model?: string;
 	/** Override the default 30-second timeout for this call. */
 	timeoutMs?: number;
 }
@@ -199,6 +205,9 @@ function aiRequest(options: PrototirAiGenerateOptions): Promise<string> {
 	if (options.timeoutMs !== undefined && (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)) {
 		return validationError('invalid_timeout', 'timeoutMs must be greater than zero.');
 	}
+	if (options.model !== undefined && (typeof options.model !== 'string' || !/^[A-Za-z0-9._\/:@-]{1,120}$/.test(options.model))) {
+		return validationError('invalid_model', 'model must be a model name such as openai/gpt-5-mini.');
+	}
 
 	return new Promise((resolve, reject) => {
 		if (typeof window === 'undefined' || window.parent === window) {
@@ -222,6 +231,7 @@ function aiRequest(options: PrototirAiGenerateOptions): Promise<string> {
 			type: 'ai',
 			prompt: options.prompt,
 			maxTokens: options.maxTokens,
+			...(options.model !== undefined ? { model: options.model } : {}),
 			id
 		});
 	});

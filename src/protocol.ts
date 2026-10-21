@@ -50,6 +50,8 @@ export interface AiMessage extends Envelope {
 	type: 'ai';
 	prompt: string;
 	maxTokens?: number;
+	/** Own-key prototypes only, when Studio sets no model. */
+	model?: string;
 	id: number;
 }
 

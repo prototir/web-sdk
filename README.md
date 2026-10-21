@@ -81,7 +81,7 @@ Event names are normalized to lowercase and must contain 1-64 letters, numbers, 
 | `storage.get(key)` | Reads a stored string or returns `null`. |
 | `storage.set(key, value)` | Stores a string scoped to the prototype and signed-in player. |
 | `storage.remove(key)` | Removes a stored value. |
-| `ai.generate(options)` | Requests provider-neutral managed text generation. |
+| `ai.generate(options)` | Generates text with the creator's own key or Prototir AI, as set on the prototype's page. |
 | `rng(seed?)` | Creates a deterministic local random-number function. |
 | `review.enable(options)` | Configures Feedback & tools (on Prototir it is already on; see below). |
 | `review.disable()` | Removes the control and cancels pending requests. |
@@ -94,8 +94,12 @@ Event names are normalized to lowercase and must contain 1-64 letters, numbers, 
 | `review.on(event, handler)` | Subscribes to `open`, `close`, `submit`, `error`. Returns an unsubscribe. |
 
 Storage keys may contain up to 128 characters, and each value up to 64 KiB of UTF-8. A prototype
-never needs service credentials: managed AI routing, moderation and allowances are handled by
-Prototir. Enable AI in `prototir.json` with `"ai": { "mode": "managed" }` and handle rejected
+never needs service credentials. AI runs either on the creator's own provider key (OpenRouter,
+OpenAI, Anthropic, Google and others, saved encrypted in Prototir Studio and never sent to the
+browser) or on Prototir AI; routing, moderation and limits are handled by Prototir either way.
+Choose it on the prototype's page, or in `prototir.json` with `"ai": { "mode": "own-key" }` or
+`"managed"`. With your own key, pass `model` (for example `'openai/gpt-5-mini'`) to pick a model
+when the prototype's page leaves it empty; the page's choice always wins. Handle rejected
 requests by their `{ code, message }` value.
 
 ## Feedback & tools
