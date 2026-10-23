@@ -152,6 +152,29 @@ Prototir.review.enable({ project: 'orbit-garden', tools: { console: false, perfo
 
 Console recording starts when the SDK loads, so turning the Console off also stops the recording.
 
+### Report details and watched values
+
+Screenshot and Comment feedback automatically includes browser, OS, viewport, screen, input,
+gamepads, session time, recent errors and a frame-rate sample. Set `build` in `review.enable`
+to include your build label; Prototir also records the build from the play session. Testers can
+preview or remove report details before posting. Only the report author and prototype owner
+can read them; explicitly attached console logs remain public with the comment.
+
+```js
+const stopWatching = Prototir.debug.watch('player.hp', () => player.hp);
+Prototir.debug.watch('level', () => currentLevel);
+// Later:
+stopWatching();
+Prototir.debug.unwatch('level');
+```
+
+Watch appears in Feedback & tools once a value is registered, including values registered after
+the player starts. Readers run only while the Watch panel is open (four times per second), or
+when feedback is captured. Each report keeps that moment's values while the tester writes.
+Up to 20 names of 1–40 letters, digits, `_ . : -` are supported, with values shortened to 200
+characters. A reader that throws shows its error. Reusing a name replaces its reader.
+Use `tools: { watch: false }` to hide Watch and omit watched values from reports.
+
 ### Driving it from your game
 
 ```js

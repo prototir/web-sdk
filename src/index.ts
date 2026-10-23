@@ -1,5 +1,7 @@
 import { runningInstance, isActiveCopy } from './instance';
 import { review } from './review';
+import { watch, unwatch } from './watch';
+export type { FeedbackReport } from './report';
 import { resolveHostOrigin } from './host-origin';
 export * from './review-document';
 // Exported so an engine adapter can read the same value the browser SDK does, and so the rule
@@ -7,7 +9,7 @@ export * from './review-document';
 export { resolveHostProject } from './host-origin';
 export * from './theme';
 export * from './pairing';
-export type { ReviewOptions } from './review';
+export type { ReviewOptions, ReviewTool } from './review';
 import {
 	PROTOTIR_SOURCE,
 	PROTOTIR_PROTOCOL_VERSION,
@@ -55,6 +57,8 @@ export interface PrototirAi {
 
 export interface PrototirSdk {
  review: typeof review;
+	/** Named state shown in Watch and included in feedback reports. */
+	debug: { watch: typeof watch; unwatch: typeof unwatch };
 	/** Signal that the prototype is loaded and genuinely interactive. */
 	ready(): void;
 	/** Record a stable analytics event with an optional small, non-personal payload. */
@@ -273,6 +277,7 @@ function rng(seed: string | number = 'prototir'): () => number {
 
 const ownInstance: PrototirSdk = {
  review,
+	debug: { watch, unwatch },
 	ready() {
 		post({ source: PROTOTIR_SOURCE, v: PROTOTIR_PROTOCOL_VERSION, type: 'ready' });
 	},

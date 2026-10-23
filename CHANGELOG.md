@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0 - 2026-10-23
+
+- Feedback includes private report details: device, browser, session time, recent errors,
+  build label and a recent frame-rate sample, previewable and removable before posting.
+- `Prototir.debug.watch(name, read)` and `unwatch(name)` expose live named state in Watch
+  and snapshot it into feedback. Watch appears when values are registered, with no polling
+  while its panel is closed.
+
 ## 0.5.0 - 2026-10-21
 
 - **`ai.generate({ model })`** names a model when the prototype's page leaves it empty; the page's

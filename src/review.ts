@@ -5,10 +5,12 @@ import { awaitApproval, PairingCancelled, postComment, startPairing, storeToken,
 import { MAX_REVIEW_BYTES, parseReviewDocument, type ReviewDocument, type ReviewThread } from './review-document';
 import { clearConsole, consoleEntries, consoleText, installConsoleCapture, onConsoleEntry, uninstallConsoleCapture, type ConsoleEntry } from './console-capture';
 import { onPerformanceSample, performanceSamples, performanceSummary, startPerformance, stopPerformance } from './performance-monitor';
+import { buildReport, type FeedbackReport } from './report';
+import { hasWatches, onWatchesChanged, watchedValues } from './watch';
 
 /** The testing tools the "Feedback & tools" control offers (§16.7). */
-export type ReviewTool = 'screenshot' | 'comment' | 'console' | 'performance';
-const ALL_TOOLS: ReviewTool[] = ['screenshot', 'comment', 'console', 'performance'];
+export type ReviewTool = 'screenshot' | 'comment' | 'console' | 'performance' | 'watch';
+const ALL_TOOLS: ReviewTool[] = ['screenshot', 'comment', 'console', 'performance', 'watch'];
 
 export interface ReviewOptions {
   project: string;
@@ -64,6 +66,13 @@ let consolePanel: HTMLElement | null = null;
 /** Holds the Console and Performance panels in one column, away from the control. */
 let toolStack: HTMLElement | null = null;
 let performancePanel: HTMLElement | null = null;
+let watchPanel: HTMLElement | null = null;
+let watchTimer: ReturnType<typeof setInterval> | undefined;
+let stopWatchChanges: (() => void) | null = null;
+let report: FeedbackReport | undefined;
+let reportDetails: HTMLElement;
+let reportPending: Promise<void> | undefined;
+let reportSerial = 0;
 let stopConsoleWatch: (() => void) | null = null;
 let stopPerformanceWatch: (() => void) | null = null;
 /** A console log or performance summary attached to the comment being written. */
@@ -189,7 +198,7 @@ function receive(event: MessageEvent) {
     // The host's own "Feedback & tools" control (the embed badge, the player's menu) drives the
     // panels here, because the console and the frames being measured live in this frame.
     else if (m.op === 'comment' && options) void openComment().catch(captureError);
-    else if (m.op === 'tool' && options && (m.tool === 'console' || m.tool === 'performance'))
+    else if (m.op === 'tool' && options && (m.tool === 'console' || m.tool === 'performance' || m.tool === 'watch'))
       setToolPanel(m.tool, m.on === true, false);
     else if (m.op === 'state' && options && hostComposer) hostState(m.open === true);
     else if (m.op === 'submitted' && options && hostComposer) {
@@ -271,7 +280,7 @@ function svgIcon(paths: string[], className = ''): SVGSVGElement {
 }
 
 /** A Console or Performance switch in the control: pressed while its panel is open. */
-function setToolPressed(tool: 'console' | 'performance', on: boolean) {
+function setToolPressed(tool: 'console' | 'performance' | 'watch', on: boolean) {
   const node = toolButtons[tool];
   if (!node) return;
   node.setAttribute('aria-pressed', String(on));
@@ -283,10 +292,13 @@ function setToolPressed(tool: 'console' | 'performance', on: boolean) {
  * Opens or closes the Console or Performance panel. `fromHere` is a click inside this frame:
  * the host's control is then told, so its switch shows the same state.
  */
-function setToolPanel(tool: 'console' | 'performance', on: boolean, fromHere: boolean) {
+function setToolPanel(tool: 'console' | 'performance' | 'watch', on: boolean, fromHere: boolean) {
   if (!options || !enabledTools.includes(tool)) return;
+  if (tool === 'watch' && on && !hasWatches()) return;
   if (tool === 'console') {
     if (on) openConsolePanel(); else closeConsolePanel();
+  } else if (tool === 'watch') {
+    if (on) openWatchPanel(); else closeWatchPanel();
   } else if (on) openPerformancePanel(); else closePerformancePanel();
   setToolPressed(tool, on);
   if (fromHere && online) void send('tool', { tool, on }).catch(() => {});
@@ -392,6 +404,55 @@ function closePerformancePanel() {
   performancePanel?.remove(); performancePanel = null;
 }
 
+function openWatchPanel() {
+  if (watchPanel) return;
+  const { panel: node, body, actions } = toolPanel('Watch', activityIcon, () => setToolPanel('watch', false, true));
+  node.classList.add('watch-panel');
+  const values = el('pre'); values.className = 'console-lines';
+  const render = () => { values.textContent = Object.entries(watchedValues()).map(([name, value]) => `${name}: ${value}`).join('\n'); };
+  render(); watchTimer = setInterval(render, 250);
+  actions.append(copyButton(() => values.textContent ?? ''), button('Comment with these values', () => openComment()));
+  body.append(values, el('p', 'Watched values are included in report details, visible to you and the prototype owner.'));
+  watchPanel = node; panelColumn().append(node);
+}
+
+function closeWatchPanel() {
+  clearInterval(watchTimer); watchTimer = undefined;
+  watchPanel?.remove(); watchPanel = null;
+}
+
+function offeredTools(): ReviewTool[] {
+  return enabledTools.filter(tool => tool !== 'watch' || hasWatches());
+}
+
+function watchesChanged() {
+  if (toolButtons.watch) toolButtons.watch.hidden = !hasWatches();
+  if (!hasWatches() && watchPanel) setToolPanel('watch', false, true);
+  if (online) void send('tools', { tools: offeredTools() }).catch(() => {});
+}
+
+function collectReport(): Promise<void> {
+  const token = generation;
+  const serial = ++reportSerial;
+  report = undefined; showReport();
+  reportPending = buildReport(options?.build, enabledTools.includes('watch')).catch(() => undefined).then(snapshot => {
+    if (token !== generation || serial !== reportSerial || !options) return;
+    report = snapshot;
+    if (!enabledTools.includes('console') && report) delete report.errors;
+    showReport();
+  });
+  return reportPending;
+}
+
+function showReport() {
+  if (!reportDetails) return;
+  reportDetails.replaceChildren(); reportDetails.hidden = !report;
+  if (!report) return;
+  const details = el('details');
+  details.append(el('summary', 'Report details (only you and the prototype owner)'), el('pre', JSON.stringify(report, null, 2)));
+  reportDetails.append(details, button('Remove report details', () => { report = undefined; showReport(); }));
+}
+
 /** Starts a comment carrying `text` (a console log or a performance summary). A message is
  *  still required: the attachment never goes out on its own. */
 async function attach(text: string, kind: 'console' | 'performance') {
@@ -403,7 +464,10 @@ async function attach(text: string, kind: 'console' | 'performance') {
 /** A comment without a screenshot: the Comment tool, or one carrying an attachment. */
 async function openComment(input: { console?: string } = {}) {
   if (!options || !connected()) return;
-  if (hostComposer) { await send('compose', { text: '', ...(input.console ? { console: input.console } : {}) }); return; }
+  const token = generation;
+  await collectReport();
+  if (token !== generation || !options) return;
+  if (hostComposer) { await send('compose', { text: '', ...(report ? { report } : {}), ...(input.console ? { console: input.console } : {}) }); return; }
   commentMode = true; setImage(''); attachment = input.console ?? '';
   selectTool('screenshot');
   show(true);
@@ -514,12 +578,13 @@ function captureError(error: unknown) {
 async function handoff() {
   if (!options || !hostComposer || !image) return;
   show(false);
-  await send('compose', { text: input_.value, screenshot: { image, x, y, context: contextInput.value } });
+  await send('compose', { text: input_.value, screenshot: { image, x, y, context: contextInput.value }, ...(report ? { report } : {}) });
 }
 async function openScreenshot(input: { text?: string; context?: string; image?: string } = {}) {
   if (!options) return;
   commentMode = false; attachment = '';
   const token = generation;
+  const collecting = collectReport();
   selectTool('screenshot');
   if (!hostComposer) show(true);
   if (input.image) {
@@ -527,6 +592,8 @@ async function openScreenshot(input: { text?: string; context?: string; image?: 
     if (token !== generation || !options) return;
     setImage(compressed);
   } else await capture();
+  if (token !== generation || !options) return;
+  await collecting;
   if (token !== generation || !options) return;
   if (input.text !== undefined) input_.value = input.text.slice(0, 2000);
   if (input.context !== undefined) contextInput.value = input.context.slice(0, 500);
@@ -623,11 +690,15 @@ async function save() {
   if (!commentMode && !image) throw new Error('Add a screenshot first.');
   busy = true; saveButton.disabled = true;
   try {
+    const token = generation;
+    await reportPending;
+    if (token !== generation || !options) return;
     if (!online && options!.apiBase && options!.slug) {
       const payload = {
         text: input_.value.trim(),
         ...(image ? { screenshot: { image, x, y, context: contextInput.value } } : {}),
         ...(attachment ? { console: attachment } : {}),
+        ...(report ? { report } : {}),
       };
       const serialized = JSON.stringify(payload);
       if (submission.payload !== serialized) submission = { payload: serialized, id: uid() };
@@ -651,7 +722,7 @@ async function save() {
       message('Posted to the prototype’s comments.');
       emit('submit', { online: true });
     } else if (online) {
-      const payload = { text: input_.value.trim(), screenshot: { image, x, y, context: contextInput.value } };
+      const payload = { text: input_.value.trim(), ...(image ? { screenshot: { image, x, y, context: contextInput.value } } : {}), ...(attachment ? { console: attachment } : {}), ...(report ? { report } : {}) };
       const serialized = JSON.stringify(payload);
       if (submission.payload !== serialized) submission = { payload: serialized, id: uid() };
       await send('create', { ...payload, clientId: submission.id });
@@ -668,7 +739,7 @@ async function save() {
       message('Saved in this review. Open Review files from Feedback to export it.');
       emit('submit', { online: false });
     }
-    input_.value = ''; editing = null; setImage(''); attachment = ''; showAttachment();
+    input_.value = ''; editing = null; setImage(''); attachment = ''; showAttachment(); report = undefined; showReport();
     if (commentMode) show(false);
   } finally { busy = false; saveButton.disabled = false; }
 }
@@ -732,11 +803,13 @@ function enable(config: ReviewOptions) {
     .console-lines{flex:1;min-height:0;overflow:auto;padding:8px 12px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere}
     .console-time{color:var(--ptr-muted)}.lv-warn{color:#b7791f}.lv-error{color:#d23a3a}.lv-debug{color:var(--ptr-muted)}
     .performance-panel{order:0;align-self:flex-end;width:min(340px,100%)}
+    .watch-panel{order:2;max-height:280px;min-height:0}.watch-panel p{padding:0 12px;font-size:12px;color:var(--ptr-muted)}
     .tool-stack.on-left .performance-panel{align-self:flex-start}
     .panel.compact{inset:auto 0;top:50%;transform:translateY(-50%);margin:0 auto;width:min(560px,calc(100% - 32px))}
     .performance-chart{display:block;width:100%;height:auto;padding:8px 12px 0}
     .performance-stats{margin:6px 12px 10px;font-size:12px;color:var(--ptr-muted)}
         .attachment-note{margin:10px 0 0;padding:8px 10px;border:1px solid var(--ptr-line);border-radius:8px;background:var(--ptr-surface);font-size:12px;color:var(--ptr-muted)}
+    .attachment-note pre{max-height:200px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
     /* The accordion chevron: it points the way the menu opens (up from a bottom corner, down from
        a top one) and turns around while the menu is open. */
     .mark-chevron{width:16px;height:16px;flex:none;transition:transform 160ms ease;transform:rotate(180deg)}
@@ -806,6 +879,8 @@ function enable(config: ReviewOptions) {
   if (enabledTools.includes('comment')) toolButtons.comment = tool('Comment', commentIcon, () => { setMenu(false); void openComment().catch(captureError); });
   if (enabledTools.includes('console')) toolButtons.console = tool('Console', terminalIcon, () => setToolPanel('console', !consolePanel, true), true);
   if (enabledTools.includes('performance')) toolButtons.performance = tool('Performance', activityIcon, () => setToolPanel('performance', !performancePanel, true), true);
+  if (enabledTools.includes('watch')) toolButtons.watch = tool('Watch', activityIcon, () => setToolPanel('watch', !watchPanel, true), true);
+  stopWatchChanges = onWatchesChanged(watchesChanged); watchesChanged();
   menu.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); setMenu(false); mark.focus(); } });
   if (config.prototypeUrl) {
     const link = el('a', 'Open on Prototir') as HTMLAnchorElement;
@@ -836,7 +911,7 @@ function enable(config: ReviewOptions) {
   const bar = el('div'); bar.className = 'bar';
   const file = el('input'); file.type = 'file'; file.accept = 'image/png,image/jpeg,image/webp'; file.hidden = true;
   file.onchange = async () => {
-    try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); const token = generation; const compressed = await compress(selected); if (token !== generation || !options) return; setImage(compressed); fallbackAttach.hidden = true; if (hostComposer) await handoff(); } }
+    try { const selected = file.files?.[0]; if (selected) { if (selected.size > 8 * 1024 * 1024) throw new Error('Image exceeds 8 MiB.'); const token = generation; const compressed = await compress(selected); if (token !== generation || !options) return; setImage(compressed); fallbackAttach.hidden = true; if (!report) await collectReport(); if (token !== generation || !options) return; if (hostComposer) await handoff(); } }
     catch (error) { message(String(error)); } finally { file.value = ''; }
   };
   panel.append(file);
@@ -914,6 +989,7 @@ function enable(config: ReviewOptions) {
   const inputLabel = el('label','Your message (required)'); inputLabel.append(input_); panel.append(inputLabel);
   input_.required = true;
   attachmentNote = el('p'); attachmentNote.className = 'attachment-note'; attachmentNote.hidden = true; panel.append(attachmentNote);
+  reportDetails = el('div'); reportDetails.className = 'attachment-note'; reportDetails.hidden = true; panel.append(reportDetails);
   saveButton = button('Save screenshot comment', save); saveButton.className = 'review-submit'; panel.append(saveButton);
   pairingPanel = el('div'); pairingPanel.className = 'pairing'; pairingPanel.hidden = true;
   pairingPanel.setAttribute('role', 'status'); panel.append(pairingPanel);
@@ -950,10 +1026,11 @@ function enable(config: ReviewOptions) {
   // Off Prototir the build's own call is the last word. On Prototir the dashboard wins, so a
   // creator can switch feedback off live without shipping a new build.
   applyLauncher(config.launcher ?? 'auto', false);
-  if (hostOrigin && window.parent !== window) void send('hello', { tools: enabledTools }).then((value: { mode?: string; launcher?: string; composer?: string; composerOpen?: boolean } | undefined) => {
+  if (hostOrigin && window.parent !== window) void send('hello', { tools: offeredTools() }).then((value: { mode?: string; launcher?: string; composer?: string; composerOpen?: boolean } | undefined) => {
     if (token !== generation) return;
     if (value?.mode === 'disabled') { disable(); return; }
     online = true; hostComposer = value?.composer === 'host';
+    watchesChanged();
     if (hostComposer) {
       const wasOpen = opened; show(false); hostState(value?.composerOpen === true);
       if (wasOpen) void (image ? handoff() : openScreenshot()).catch(captureError);
@@ -979,7 +1056,9 @@ function disable() {
   if (opened || hostOpened) options?.onOpenChange?.(false);
   if (typeof window !== 'undefined') window.removeEventListener('message',receive);
   for (const request of requests.values()) { clearTimeout(request.timer); request.reject(new Error('Review closed.')); }
-  closeConsolePanel(); closePerformancePanel(); toolStack = null;
+  closeConsolePanel(); closePerformancePanel(); closeWatchPanel(); toolStack = null;
+  stopWatchChanges?.(); stopWatchChanges = null; report = undefined;
+  reportPending = undefined; reportSerial++;
   requests.clear(); host?.remove(); options = null; online = false; hostComposer = false; hostOpened = false; opened = false; image = ''; editing = null; fileHandle = null; dirty = false; busy = false;
 }
 export type ReviewEvent = 'open' | 'close' | 'submit' | 'error';
@@ -1030,7 +1109,7 @@ if (typeof window !== 'undefined') {
 
 export const review = {
   enable, disable,
-  open: () => { if (options && connected()) { if (hostComposer) void openScreenshot().catch(captureError); else { selectTool('screenshot'); show(true); } } },
+  open: () => { if (options && connected()) { if (hostComposer) void openScreenshot().catch(captureError); else { selectTool('screenshot'); show(true); void collectReport(); } } },
   importDocument,
   exportDocument: () => JSON.stringify(parseReviewDocument(JSON.stringify(doc))),
   /** Engine adapters can submit an end-of-frame screenshot without JS evaluation. */
@@ -1053,7 +1132,7 @@ export const review = {
   comment: async () => openComment(),
 
   /** Shows or hides the Console or Performance panel. */
-  tool: (tool: 'console' | 'performance', on: boolean) => setToolPanel(tool, on, true),
+  tool: (tool: 'console' | 'performance' | 'watch', on: boolean) => setToolPanel(tool, on, true),
 
   /** The recorded console as plain text (the last ~300 entries). */
   consoleText: () => consoleText(),
